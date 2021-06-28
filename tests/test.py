@@ -48,12 +48,8 @@ class TestCountry:
 
         assert len(countries) == len(Country)
 
-        if __name__ == '__main__':
-            pytest.main()
-
 
 class TestScraper:
-
     scraper = Scraper(Country.Japan)
     test_asin = 'B07WXL5YPW'
 
@@ -65,3 +61,7 @@ class TestScraper:
 
     def test_aa(self):
         pass
+
+
+if __name__ == '__main__':
+    pytest.main()
