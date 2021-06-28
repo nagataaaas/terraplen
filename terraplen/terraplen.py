@@ -10,7 +10,6 @@ from terraplen.utils import find_number, remove_whitespace
 from bs4 import BeautifulSoup
 import json
 from urllib.parse import quote, urljoin
-from itertools import zip_longest
 
 
 # amazon returns 503 if predicted as a bot
@@ -33,12 +32,33 @@ class Selector:
         DataName = 'aria-valuenow'
 
     class Offer:
+        Pinned = '#a-autoid-2'
         Count = '#aod-filter-offer-count-string'
         Price = 'span.a-price-whole'
         PriceFraction = 'span.a-price-fraction'
         PriceSymbol = 'span.a-price-symbol'
         SellerRating = '#aod-offer-seller-rating > i'
         Heading = '#aod-offer-heading'
+
+        PinnedOffer = '#aod-pinned-offer'
+        Offers = '#aod-offer'
+        StarClassPrefix = 'a-star-mini-'
+
+    class Review:
+        StreamStrip = '\n&&&\n'
+        StreamIndex0 = 'append'
+        StreamTop = 'div'
+        DataAttr = 'data-hook'
+        ReviewDataAttr = 'review'
+        RatingIcon = 'i.review-rating'
+        StarClassPrefix = 'a-star-'
+
+        ReviewURL = 'a.a-link-normal.review-title'
+        Title = 'a[data-hook="review-title"]'
+        Helpful = 'span[data-hook="helpful-vote-statement"]'
+        Body = 'span[data-hook="review-body"]'
+        Reviewer = 'span.a-profile-name'
+        ReviewerURL = 'a.a-profile'
 
 
 class Country(Enum):
@@ -78,9 +98,10 @@ class Offer:
 
 
 class Review:
-    def __init__(self, reviewer: str, reviewer_url: str, title: str, rating: int, helpful: int, body: str):
+    def __init__(self, reviewer: str, reviewer_url: str, review_url: str, title: str, rating: int, helpful: int, body: str):
         self.reviewer = reviewer
         self.reviewer_url = reviewer_url
+        self.review_url = review_url
         self.title = title
         self.rating = rating
         self.helpful = helpful
@@ -92,8 +113,8 @@ class Review:
         print_body = body_repr[:body_repr_length]
         if body_repr[body_repr_length:]:
             print_body += '...'
-        return 'Review(reviewer={}, reviewer_url={}, title={}, rating={}, helpful={}, body={})'.format(
-            repr(self.reviewer), repr(self.reviewer_url),
+        return 'Review(reviewer={}, reviewer_url={}, review_url={}, title={}, rating={}, helpful={}, body={})'.format(
+            repr(self.reviewer), repr(self.reviewer_url), repr(self.review_url),
             repr(self.title), self.rating, self.helpful, print_body)
 
 
@@ -148,6 +169,9 @@ class Scraper:
         self.cookie.update(resp.cookies)
         return BeautifulSoup(resp.text, 'lxml')
 
+
+    # TODO: post_with_update_cookie
+
     @retry
     def get_rating(self, asin: str):
         soup = self.get_with_update_cookie(self._url_rating(asin))
@@ -163,10 +187,10 @@ class Scraper:
                              used_like_new=used_like_new, used_very_good=used_very_good, used_good=used_good,
                              used_acceptable=used_acceptable, merchant=merchant, page=1))
 
-        offer_count = (bool(soup.select('#a-autoid-2')) +
+        offer_count = (bool(soup.select(Selector.Offer.Pinned)) +
                        int(find_number(soup.select_one(Selector.Offer.Count).text + '0')))
         offers = []
-        for offer in soup.select('#aod-pinned-offer') + soup.select('#aod-offer'):
+        for offer in soup.select(Selector.Offer.PinnedOffer) + soup.select(Selector.Offer.Offers):
             price, price_fraction, currency, rating, heading = (offer.select_one(Selector.Offer.Price),
                                                                 offer.select_one(Selector.Offer.PriceFraction),
                                                                 offer.select_one(Selector.Offer.PriceSymbol),
@@ -179,8 +203,8 @@ class Scraper:
 
             if rating:
                 for cls in rating['class']:
-                    if cls.startswith('a-star-mini-'):
-                        cls = cls.lstrip('a-star-mini-')
+                    if cls.startswith(Selector.Offer.StarClassPrefix):
+                        cls = cls.lstrip(Selector.Offer.StarClassPrefix)
                         rating = float(cls.replace('-', '.'))
                         break
 
@@ -262,29 +286,29 @@ class Scraper:
                                                              'scope': 'reviewsAjax1'},
                              headers=self._create_header())
         review = []
-        # TODO: check if there is `END FLAG`
-        for dat in resp.text.split('\n&&&\n'):
+
+        for dat in resp.text.split(Selector.Review.StreamStrip):
             if not dat:
                 continue
             data = eval(dat)
-            if data[0] == 'append' and data[2]:
+            if data[0] == Selector.Review.StreamIndex0 and data[2]:
                 soup = BeautifulSoup(data[2], 'lxml')
-                top = soup.select_one('div')
-                if top and top.get('data-hook', None) == 'review':
-                    rating = top.select_one('i.review-rating')
+                top = soup.select_one(Selector.Review.StreamTop)
+                if top and top.get(Selector.Review.DataAttr, None) == Selector.Review.ReviewDataAttr:
+                    rating = top.select_one(Selector.Review.RatingIcon)
 
                     if rating:
                         for cls in rating['class']:
-                            if cls.startswith('a-star-'):
-                                cls = cls.lstrip('a-star-')
+                            if cls.startswith(Selector.Review.StarClassPrefix):
+                                cls = cls.lstrip(Selector.Review.StarClassPrefix)
                                 rating = int(cls)
                                 break
 
-                    title = top.select_one('a[data-hook="review-title"]')
+                    title = top.select_one(Selector.Review.Title)
                     if title:
                         title = title.text.strip()
 
-                    helpful = top.select_one('span[data-hook="helpful-vote-statement"]')
+                    helpful = top.select_one(Selector.Review.Helpful)
                     if helpful:
                         try:
                             helpful = int(find_number(helpful.text.strip()))
@@ -293,18 +317,22 @@ class Scraper:
                     else:
                         helpful = 0
 
-                    body = top.select_one('span[data-hook="review-body"]')
+                    body = top.select_one(Selector.Review.Body)
                     if body:
                         body = body.text.strip()
 
-                    reviewer = top.select_one('span.a-profile-name')
-                    reviewer_url = top.select_one('a.a-profile')
+                    reviewer = top.select_one(Selector.Review.Reviewer)
+                    reviewer_url = top.select_one(Selector.Review.ReviewerURL)
                     if reviewer:
                         reviewer = reviewer.text.strip()
                     if reviewer_url:
                         reviewer_url = self._abs_path(reviewer_url['href'])
 
-                    review.append(Review(reviewer, reviewer_url, title, rating, helpful, body))
+                    review_url = top.select_one(Selector.Review.ReviewURL)
+                    if review_url:
+                        review_url = self._abs_path(review_url['href'])
+
+                    review.append(Review(reviewer, reviewer_url, review_url, title, rating, helpful, body))
         return review, len(review) != page_size
 
     def _create_header(self):
