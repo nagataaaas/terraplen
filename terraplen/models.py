@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Dict
+from typing import List, Dict, Union
 
 
 class UserAgents:
@@ -38,16 +38,22 @@ class Country(Enum):
 
 
 class Offer:
-    def __init__(self, price: float, currency: str, rating: float, condition: str):
+    def __init__(self, price: Union[float, None], currency: str, rating: float, condition: str, ships_from: str,
+                 sold_by: str, sold_by_url: str):
         self.price = price
         self.currency = currency
         self.approx_review = rating
         self.condition = condition
+        self.ships_from = ships_from
+        self.sold_by = sold_by
+        self.sold_by_url = sold_by_url
 
     def __repr__(self):
-        return 'Offer(price={}, currency="{}", approx_review={}, condition="{}")'.format(self.price, self.currency,
-                                                                                         self.approx_review,
-                                                                                         self.condition)
+        return ('Offer(price={}, currency={}, approx_review={}, condition={}, '
+                'ships_from={}, sold_by={}, sold_by_url={})').format(self.price, repr(self.currency),
+                                                                     self.approx_review, repr(self.condition),
+                                                                     repr(self.ships_from), repr(self.sold_by),
+                                                                     repr(self.sold_by_url))
 
 
 class OfferList:

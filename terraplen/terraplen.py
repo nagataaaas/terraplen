@@ -60,7 +60,7 @@ class Scraper:
         return resp
 
     @retry
-    def get_rating(self, asin: str):
+    def get_rating(self, asin: str) -> Dict[int, int]:
         resp = self.get_with_update_cookie(self._url_rating(asin))
         if resp.status_code != 200:
             raise ValueError("status code `{}` seems like invalid for `get_rating`".format(resp.status_code))
@@ -70,7 +70,7 @@ class Scraper:
 
     @retry
     def get_offers(self, asin: str, prime_eligible=False, free_shipping=False, new=False, used_like_new=False,
-                   used_very_good=False, used_good=False, used_acceptable=False, merchant=None, page=1):
+                   used_very_good=False, used_good=False, used_acceptable=False, merchant=None, page=1) -> OfferList:
 
         resp = self.get_with_update_cookie(
             self._url_offers(asin, prime_eligible=prime_eligible, free_shipping=free_shipping, new=new,
@@ -80,19 +80,33 @@ class Scraper:
             raise ValueError("status code `{}` seems like invalid for `get_offers`".format(resp.status_code))
         soup = BeautifulSoup(resp.text, 'lxml')
 
-        offer_count = (bool(soup.select(selector.Offer.Pinned)) +
+        offer_count = (bool(soup.select_one(selector.Offer.Pinned)) +
                        int(find_number(soup.select_one(selector.Offer.Count).text + '0')))
         offers = []
         for offer in soup.select(selector.Offer.PinnedOffer) + soup.select(selector.Offer.Offers):
-            price, price_fraction, currency, rating, heading = (offer.select_one(selector.Offer.Price),
-                                                                offer.select_one(selector.Offer.PriceFraction),
-                                                                offer.select_one(selector.Offer.PriceSymbol),
-                                                                offer.select_one(selector.Offer.SellerRating),
-                                                                offer.select_one(selector.Offer.Heading))
+            (price, price_fraction, currency,
+             rating, heading, ships_from, sold_by) = (offer.select_one(selector.Offer.Price),
+                                                      offer.select_one(selector.Offer.PriceFraction),
+                                                      offer.select_one(selector.Offer.PriceSymbol),
+                                                      offer.select_one(selector.Offer.SellerRating),
+                                                      offer.select_one(selector.Offer.Heading),
+                                                      offer.select_one(selector.Offer.ShipsFrom),
+                                                      offer.select_one(selector.Offer.SoldBy))
+            if not price:
+                continue
             if price_fraction:
                 price = float(price.text.replace(',', '') + price_fraction.text)
             else:
                 price = int(price.text.replace(',', ''))
+
+            currency = currency.text
+            heading = remove_whitespace(heading.text)
+            ships_from = ships_from.text.strip()
+            if sold_by.name == 'a':
+                sold_by_url = self._abs_path(sold_by['href'])
+            else:
+                sold_by_url = None
+            sold_by = sold_by.text.strip()
 
             if rating:
                 for cls in rating['class']:
@@ -101,8 +115,8 @@ class Scraper:
                         rating = float(cls.replace('-', '.'))
                         break
 
-            offers.append(Offer(price=price, currency=currency.text, rating=rating,
-                                condition=remove_whitespace(heading.text)))
+            offers.append(Offer(price=price, currency=currency, rating=rating,
+                                condition=heading, ships_from=ships_from, sold_by=sold_by, sold_by_url=sold_by_url))
         return OfferList(offer_count, offers)
 
     @retry

@@ -4,7 +4,7 @@ class Rating:
 
 
 class Offer:
-    Pinned = '#a-autoid-2'
+    Pinned = '#aod-pinned-offer >* #a-autoid-2'
     Count = '#aod-filter-offer-count-string'
     Price = 'span.a-price-whole'
     PriceFraction = 'span.a-price-fraction'
@@ -15,6 +15,9 @@ class Offer:
     PinnedOffer = '#aod-pinned-offer'
     Offers = '#aod-offer'
     StarClassPrefix = 'a-star-mini-'
+
+    ShipsFrom = '#aod-offer-shipsFrom >* span.a-color-base'
+    SoldBy = '#aod-offer-soldBy > div > div > div.a-fixed-left-grid-col.a-col-right > *:first-child'
 
 
 class Review:
