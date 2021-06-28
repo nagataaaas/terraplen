@@ -4,6 +4,8 @@ class Rating:
 
 
 class Offer:
+    ProductName = '#aod-asin-title-text'
+
     Pinned = '#aod-pinned-offer >* #a-autoid-2'
     Count = '#aod-filter-offer-count-string'
     Price = 'span.a-price-whole'

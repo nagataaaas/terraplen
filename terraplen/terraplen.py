@@ -80,6 +80,7 @@ class Scraper:
             raise ValueError("status code `{}` seems like invalid for `get_offers`".format(resp.status_code))
         soup = BeautifulSoup(resp.text, 'lxml')
 
+        product_name = soup.select_one(selector.Offer.ProductName).text.strip()
         offer_count = (bool(soup.select_one(selector.Offer.Pinned)) +
                        int(find_number(soup.select_one(selector.Offer.Count).text + '0')))
         offers = []
@@ -117,7 +118,11 @@ class Scraper:
 
             offers.append(Offer(price=price, currency=currency, rating=rating,
                                 condition=heading, ships_from=ships_from, sold_by=sold_by, sold_by_url=sold_by_url))
-        return OfferList(offer_count, offers)
+        return OfferList(product_name, offer_count, offers,
+                         settings={"prime_eligible": prime_eligible, "free_shipping": free_shipping, "new": new,
+                                   "used_like_new": used_like_new, "used_very_good": used_very_good,
+                                   "used_good": used_good,
+                                   "used_acceptable": used_acceptable, "merchant": merchant, "page": page})
 
     @retry
     def get_review(self, asin: str, page=1) -> ReviewList:  # Should I add some `settings`?
@@ -136,7 +141,7 @@ class Scraper:
                     # {'one', 'two', 'three', 'four', 'five'} + '_star' or
                     # 'positive' or 'critical' or 'all_stars'(default)
                     'pageNumber': page,  # default=1
-                    'filterByLanguage': '',
+                    'filterByLanguage': 'zh_TW',
                     'filterByKeyword': '',  # search
                     'shouldAppend': 'undefined',
                     'deviceType': 'desktop',
@@ -195,7 +200,7 @@ class Scraper:
                         review_url = self._abs_path(review_url['href'])
 
                     review.append(Review(reviewer, reviewer_url, review_url, title, rating, helpful, body))
-        return ReviewList(review, asin, self.country, settings, page, len(review) != page_size)
+        return ReviewList(review, asin, self.country, settings, len(review) != page_size)
 
     def _url_top_page(self) -> str:
         return 'https://{domain}'.format(domain=self.domain)
