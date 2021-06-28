@@ -37,3 +37,6 @@ class Review:
     Body = 'span[data-hook="review-body"]'
     Reviewer = 'span.a-profile-name'
     ReviewerURL = 'a.a-profile'
+
+class Product:
+    ImageLinks = 'li.image.item.maintain-height >* img'

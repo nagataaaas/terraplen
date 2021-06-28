@@ -14,12 +14,14 @@
 import locale
 
 from .__about__ import __version__
-from .terraplen import (Scraper, Country)
+from .terraplen import (Scraper, Country, Language, Currency)
 
 locale.setlocale(locale.LC_ALL, '')
 
 __all__ = [
     "__version__",
     "Scraper",
-    "Country"
+    "Country",
+    "Language",
+    "Currency"
 ]

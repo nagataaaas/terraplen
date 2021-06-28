@@ -5,12 +5,14 @@ from terraplen.wrappers import retry
 from terraplen.exception import (DetectedAsBotException, BotDetectedStatusCode,
                                  ProductNotFoundCode, ProductNotFoundException)
 from terraplen.utils import find_number, remove_whitespace
-from terraplen.models import (Offer, OfferList, Review, ReviewList, Country, UserAgents)
+from terraplen.models import (Offer, OfferList, Review, ReviewList, Country, UserAgents, Currency, Language)
 
 from bs4 import BeautifulSoup
 import json
 from urllib.parse import quote, urljoin
-from typing import Dict
+from typing import Dict, Optional
+
+from warnings import warn
 
 
 class Scraper:
@@ -19,20 +21,34 @@ class Scraper:
                               'Chrome/91.0.4472.114 Safari/537.36', 'Chrome/91.0.4472.101 Safari/537.36',
                               'Chrome/91.0.4472.124 Safari/537.36'])
 
-    def __init__(self, country: Country = Country.UnitedStates, run_init=True):
+    def __init__(self, country: Optional[Country] = Country.UnitedStates, language: Optional[Language] = None,
+                 currency: Optional[Currency] = None, run_init=True):
         """
         Create Scraper Instance
-        :param country: Instance of `terraplen.Country` or `str`
+        :param country: Instance of `terraplen.Country` or `str`. Language and currency will automatically be calculated if not provided. Defaults to `Country.UnitedStates.`
+        :param language: Instance of `terraplen.Language` or `str`
+        :param currency: Instance of `terraplen.Currency` or `str`
         :param run_init: Whether run first setup. setup accesses to Amazon homepage.
         """
-        if isinstance(country, Country):
-            self.country = country
-        elif isinstance(country, str):
-            self.country = Country(country)  # This will raise `ValueError` if `country` is invalid.
-
-        self.domain = 'www.amazon.{}'.format(self.country.value)
         self.headers = {'User-Agent': self.user_agents.get_next_user_agent()}
         self.cookie = {}
+
+        if not country:
+            country = Country.UnitedStates
+        if not language:
+            language = country.lang_and_currency()[0]
+        if not currency:
+            currency = country.lang_and_currency()[1]
+
+        self.country = country
+        self.language = language
+        self.currency = currency
+        self.domain = ''
+
+        self.set_country(country)
+        self.set_language(language)
+        self.set_currency(currency)
+
         self.init_have_run = False
 
         if run_init:
@@ -47,6 +63,17 @@ class Scraper:
             raise BotDetectedStatusCode
         if resp.status_code == ProductNotFoundCode:
             raise ProductNotFoundException
+        if self.language.value != resp.cookies.get(self._language_cookie_key, self.language.value):
+            warn('looks like language `{}` is not acceptable for `{}`. '
+                 'Server returned to set `{}`. Language updated'.format(self.language.value, self.domain,
+                                                                        resp.cookies[self._language_cookie_key]))
+            self.language = Language(resp.cookies[self._language_cookie_key])
+            self.set_language(resp.cookies[self._language_cookie_key])
+        if self.currency.value != resp.cookies.get('i18n-prefs', self.currency.value):
+            warn('looks like currency `{}` is not acceptable for `{}`. '
+                 'Server returned to set `{}`'.format(self.currency.value, self.domain,
+                                                      resp.cookies['i18n-prefs']))
+            self.set_currency(resp.cookies['i18n-prefs'])
         self.cookie.update(resp.cookies)
         return resp
 
@@ -56,8 +83,45 @@ class Scraper:
             raise BotDetectedStatusCode
         if resp.status_code == ProductNotFoundCode:
             raise ProductNotFoundException
+        if self.language.value != resp.cookies.get(self._language_cookie_key, self.language.value):
+            warn('looks like language `{}` is not acceptable for `{}`. '
+                 'Server returned to set `{}`. Language updated'.format(self.language.value, self.domain,
+                                                                        resp.cookies[self._language_cookie_key]))
+            self.set_language(resp.cookies[self._language_cookie_key])
+        if self.currency.value != resp.cookies.get('i18n-prefs', self.currency.value):
+            warn('looks like currency `{}` is not acceptable for `{}`. '
+                 'Server returned to set `{}`'.format(self.currency.value, self.domain,
+                                                      resp.cookies['i18n-prefs']))
+            self.set_currency(resp.cookies['i18n-prefs'])
         self.cookie.update(resp.cookies)
         return resp
+
+    def set_country(self, country: Country):
+        if isinstance(country, Country):
+            self.country = country
+        elif isinstance(country, str):
+            self.country = Country(country)  # This will raise `ValueError` if `country` is invalid.
+
+        self.domain = 'www.amazon.{}'.format(self.country.value)
+
+    def set_currency(self, currency: Currency):
+        if isinstance(currency, str):
+            currency = Currency(currency)  # This will raise `ValueError` if `currency` is invalid.
+        self.currency = currency
+        self.cookie['i18n-prefs'] = currency.value
+
+    def set_language(self, language: Language):
+        if isinstance(language, str):
+            language = Language(language)  # This will raise `ValueError` if `language` is invalid.
+        self.language = language
+        self.cookie[self._language_cookie_key] = self.language.value
+
+    @property
+    def _language_cookie_key(self):
+        if self.country == Country.UnitedStates:
+            return 'lc-main'
+        else:
+            return 'lc-acb{}'.format(self.country.value.split('.')[-1])
 
     @retry
     def get_rating(self, asin: str) -> Dict[int, int]:
@@ -67,11 +131,12 @@ class Scraper:
         soup = BeautifulSoup(resp.text, 'lxml')
         return {i: int(elem[selector.Rating.DataName].rstrip('%')) for elem, i in
                 zip(soup.select(selector.Rating.Value), range(5, 0, -1))}
+    # https://images-na.ssl-images-amazon.com/images/I/71IdKRlm8%2BL._AC_SL1417_.jpg
+    # https://images-na.ssl-images-amazon.com/images/I/51lJ2FZcw5L._AC_US40_.jpg
 
     @retry
     def get_offers(self, asin: str, prime_eligible=False, free_shipping=False, new=False, used_like_new=False,
                    used_very_good=False, used_good=False, used_acceptable=False, merchant=None, page=1) -> OfferList:
-
         resp = self.get_with_update_cookie(
             self._url_offers(asin, prime_eligible=prime_eligible, free_shipping=free_shipping, new=new,
                              used_like_new=used_like_new, used_very_good=used_very_good, used_good=used_good,
@@ -79,7 +144,6 @@ class Scraper:
         if resp.status_code != 200:
             raise ValueError("status code `{}` seems like invalid for `get_offers`".format(resp.status_code))
         soup = BeautifulSoup(resp.text, 'lxml')
-
         product_name = soup.select_one(selector.Offer.ProductName).text.strip()
         offer_count = (bool(soup.select_one(selector.Offer.Pinned)) +
                        int(find_number(soup.select_one(selector.Offer.Count).text + '0')))
@@ -141,7 +205,7 @@ class Scraper:
                     # {'one', 'two', 'three', 'four', 'five'} + '_star' or
                     # 'positive' or 'critical' or 'all_stars'(default)
                     'pageNumber': page,  # default=1
-                    'filterByLanguage': 'zh_TW',
+                    'filterByLanguage': '',
                     'filterByKeyword': '',  # search
                     'shouldAppend': 'undefined',
                     'deviceType': 'desktop',
@@ -220,22 +284,12 @@ class Scraper:
         filter_query = quote(json.dumps({name: True for name in filter_query})) if filter_query else ''
 
         if merchant:
-            return 'https://{domain}/gp/aod/ajax/ref=auto_load_aod?' \
-                   'asin={asin}&pc=dp&pageno={page}&m={merchant}' \
-                   '{filter}'.format(domain=self.domain,
-                                     asin=asin,
-                                     page=page,
-                                     merchant=merchant,
-                                     filter='&filter={}'
-                                     .format(
-                                         filter_query) if filter_query else '')
-        return 'https://{domain}/gp/aod/ajax/ref=auto_load_aod?' \
-               'asin={asin}&pc=dp&pageno={page}{filter}'.format(domain=self.domain,
-                                                                asin=asin,
-                                                                page=page,
-                                                                filter='&filter={}'.
-                                                                format(filter_query) if
-                                                                filter_query else '')
+            return 'https://{domain}/gp/aod/ajax/ref=auto_load_aod?asin={asin}&pc=dp&pageno={page}&m={merchant}' \
+                   '{filter}'.format(domain=self.domain, asin=asin, page=page, merchant=merchant,
+                                     filter='&filter={}'.format(filter_query) if filter_query else '')
+        return 'https://{domain}/gp/aod/ajax/ref=auto_load_aod?asin={asin}&pc=dp&' \
+               'pageno={page}{filter}'.format(domain=self.domain, asin=asin, page=page,
+                                              filter='&filter={}'.format(filter_query) if filter_query else '')
 
     def _url_rating(self, asin: str) -> str:
         return 'https://{domain}/gp/customer-reviews/widgets/average-customer-review/' \

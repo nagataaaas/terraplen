@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Tuple
 
 
 class UserAgents:
@@ -14,32 +14,9 @@ class UserAgents:
         return '{head} {version}'.format(head=self.head, version=self.version[self.index])
 
 
-class Country(Enum):
-    Australia = "com.au"
-    Brazil = "com.br"
-    Canada = "ca"
-    ChinaMainland = "cn"
-    France = "fr"
-    Germany = "de"
-    India = "in"
-    Italy = "it"
-    Japan = "co.jp"
-    Mexico = "com.mx"
-    Netherlands = "nl"
-    Poland = "pl"
-    SaudiArabia = "sa"
-    Singapore = "sg"
-    Spain = "es"
-    Sweden = "se"
-    Turkey = "com.tr"
-    UnitedArabEmirates = "ae"
-    UnitedKingdom = "co.uk"
-    UnitedStates = "com"
-
-
 class Language(Enum):
     English = 'en_US'
-    Spanish = 'es_US'
+    Spanish = 'es_ES'
     SimplifiedChinese = 'zh_CN'
     TraditionalChinese_ = 'zh_TW'
     German = 'de_DE'
@@ -47,16 +24,30 @@ class Language(Enum):
     Korean = 'ko_KR'
     Hebrew = 'he_IL'
     Arabic = 'ar_AE'
+    Hindi = 'hi_IN'
+    Tamil = 'ta_IN'
+    Telugu = 'te_IN'
+    Kannada = 'kn_IN'
+    Malayalam = 'ml_IN'
+    Italian = 'it_IT'
+    Swedish = 'sv_SE'
+    French = 'fr_FR'
+    Japanese = 'ja_JP'
+    Dutch = 'nl_NL'
+    Polish = 'pl_PL'
+    Turkish = 'tr_TR'
+
+    EnglishAustralia = 'en_AU'
+    EnglishCanada = 'en_CA'
+    EnglishSingapore = 'en_SG'
+    EnglishSpain = 'en_ES'
+    EnglishUnitedArabEmirates = 'en_AE'
+    EnglishUnitedKingdom = 'en_GB'
+    SpanishMexico = 'es_MX'
+    SpanishUnitedStates = 'es_US'
 
 
 class Currency(Enum):
-    Pounds = "GBP"
-    ChineseYuanRenminbi = "CNY"
-    DanishKrone = "DKK"
-    Euro = "EUR"
-    PolishZloty = "PLN"
-    SwedishKrona = "SEK"
-    USDollar = "USD"
     ArabEmiratesDirham = "AED"
     ArgentinePeso = "ARS"
     AustralianDollar = "AUD"
@@ -67,13 +58,17 @@ class Currency(Enum):
     BrazilianReal = "BRL"
     BruneianDollar = "BND"
     BulgariaLev = "BGN"
+    CanadianDollar = "CAD"
     CaymanianDollar = "KYD"
     ChileanPeso = "CLP"
+    ChineseYuanRenminbi = "CNY"
     ColombianPeso = "COP"
     CostaRicanColon = "CRC"
     CzechKoruna = "CZK"
+    DanishKrone = "DKK"
     DominicanRepublicPeso = "DOP"
     EgyptianPound = "EGP"
+    Euro = "EUR"
     GhanaianCedi = "GHS"
     GuatemalanQuetzal = "GTQ"
     HongKongDollar = "HKD"
@@ -98,6 +93,8 @@ class Currency(Enum):
     PanamanianBalboa = "PAB"
     PeruvianSol = "PEN"
     PhilippinePeso = "PHP"
+    PolishZloty = "PLN"
+    Pounds = "GBP"
     QatariRiyal = "QAR"
     RomanianLei = "RON"
     RussianRuble = "RUB"
@@ -105,12 +102,61 @@ class Currency(Enum):
     SingaporeDollar = "SGD"
     SouthKoreanWon = "KRW"
     SriLankanRupee = "LKR"
+    SwedishKrona = "SEK"
     SwissFranc = "CHF"
     TaiwanNewDollar = "TWD"
     TanzaniaShilling = "TZS"
     ThaiBaht = "THB"
     TrinidadianDollar = "TTD"
     TurkishLira = "TRY"
+    USDollar = "USD"
+
+
+class Country(Enum):
+    Australia = "com.au"
+    Brazil = "com.br"
+    Canada = "ca"
+    ChinaMainland = "cn"
+    France = "fr"
+    Germany = "de"
+    India = "in"
+    Italy = "it"
+    Japan = "co.jp"
+    Mexico = "com.mx"
+    Netherlands = "nl"
+    Poland = "pl"
+    SaudiArabia = "sa"
+    Singapore = "sg"
+    Spain = "es"
+    Sweden = "se"
+    Turkey = "com.tr"
+    UnitedArabEmirates = "ae"
+    UnitedKingdom = "co.uk"
+    UnitedStates = "com"
+
+    def lang_and_currency(self) -> Tuple[Language, Currency]:
+        return {
+            Country.Australia: (Language.EnglishAustralia, Currency.AustralianDollar),
+            Country.Brazil: (Language.Portuguese, Currency.BrazilianReal),
+            Country.Canada: (Language.EnglishCanada, Currency.CanadianDollar),
+            Country.ChinaMainland: (Language.SimplifiedChinese, Currency.ChineseYuanRenminbi),
+            Country.France: (Language.French, Currency.Euro),
+            Country.Germany: (Language.German, Currency.Euro),
+            Country.India: (Language.Hindi, Currency.IndianRupee),
+            Country.Italy: (Language.Italian, Currency.Euro),
+            Country.Japan: (Language.Japanese, Currency.JapaneseYen),
+            Country.Mexico: (Language.SpanishMexico, Currency.MexicoPeso),
+            Country.Netherlands: (Language.Dutch, Currency.Euro),
+            Country.Poland: (Language.Polish, Currency.PolishZloty),
+            Country.SaudiArabia: (Language.Arabic, Currency.SaudiArabianRiyal),
+            Country.Singapore: (Language.EnglishSingapore, Currency.SingaporeDollar),
+            Country.Spain: (Language.Spanish, Currency.Euro),
+            Country.Sweden: (Language.Swedish, Currency.SwedishKrona),
+            Country.Turkey: (Language.Turkish, Currency.TurkishLira),
+            Country.UnitedArabEmirates: (Language.EnglishUnitedArabEmirates, Currency.ArabEmiratesDirham),
+            Country.UnitedKingdom: (Language.EnglishUnitedKingdom, Currency.Pounds),
+            Country.UnitedStates: (Language.English, Currency.USDollar)
+        }[self]
 
 
 class Offer:
@@ -189,7 +235,8 @@ class ReviewList:
         if reviews_repr[reviews_repr_length:]:
             print_reviews += '...'
         return 'ReviewList(reviews={}, asin={}, country={}, page={}, last_page={})'.format(print_reviews,
-                                                                                           self.asin, self.country,
+                                                                                           repr(self.asin),
+                                                                                           self.country,
                                                                                            self.page, self.last_page)
 
 
