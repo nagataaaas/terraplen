@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 import json
 from urllib.parse import quote, urljoin
 from typing import Dict, Optional
+import re
 
 from warnings import warn
 
@@ -124,6 +125,30 @@ class Scraper:
             return 'lc-acb{}'.format(self.country.value.split('.')[-1])
 
     @retry
+    def get_product(self, asin: str):
+        resp = self.get_with_update_cookie(self._url_product(asin))
+        soup = BeautifulSoup(resp.text, 'lxml')
+        image_block = re.search(r"var obj = jQuery\.parseJSON\('([^']+)'\);",
+                                soup.select_one(
+                                    '#imageBlockVariations_feature_div > script').string).groups(1)[0]
+        if soup.select('#twisterContainer'):  # has options
+            print('twisting!')
+            twister = soup.select_one('#twisterJsInitializer_feature_div > script')
+            twister = re.search(r"var dataToReturn = ([^;]+)", twister.string).groups(1)[0]
+            twister = re.sub(r'"updateDivLists"\s*:\s*{([^}[]+\[[^]]*\],?\s*)+},', '', twister,
+                             1)  # this is much faster
+        else:
+            print('not twisting...')
+            twister = re.search(r"var data = ({.+});",
+                                soup.select_one('#imageBlock_feature_div > script:nth-child(3)').string,
+                                re.DOTALL).groups(1)[0]
+            twister = '\n'.join(
+                re.findall(r'''^["'](?:colorImages|colorToAsin|heroImage)["'].+$''', twister, re.MULTILINE))
+            twister = '{' + twister + '}'
+
+        return image_block, twister
+
+    @retry
     def get_rating(self, asin: str) -> Dict[int, int]:
         resp = self.get_with_update_cookie(self._url_rating(asin))
         if resp.status_code != 200:
@@ -131,8 +156,6 @@ class Scraper:
         soup = BeautifulSoup(resp.text, 'lxml')
         return {i: int(elem[selector.Rating.DataName].rstrip('%')) for elem, i in
                 zip(soup.select(selector.Rating.Value), range(5, 0, -1))}
-    # https://images-na.ssl-images-amazon.com/images/I/71IdKRlm8%2BL._AC_SL1417_.jpg
-    # https://images-na.ssl-images-amazon.com/images/I/51lJ2FZcw5L._AC_US40_.jpg
 
     @retry
     def get_offers(self, asin: str, prime_eligible=False, free_shipping=False, new=False, used_like_new=False,
@@ -268,6 +291,9 @@ class Scraper:
 
     def _url_top_page(self) -> str:
         return 'https://{domain}'.format(domain=self.domain)
+
+    def _url_product(self, asin: str) -> str:
+        return 'https://{domain}/dp/{asin}'.format(domain=self.domain, asin=asin)
 
     def _url_offers(self, asin: str, prime_eligible, free_shipping, new, used_like_new,
                     used_very_good, used_good, used_acceptable, merchant: str = None, page=1) -> str:

@@ -38,5 +38,6 @@ class Review:
     Reviewer = 'span.a-profile-name'
     ReviewerURL = 'a.a-profile'
 
+
 class Product:
     ImageLinks = 'li.image.item.maintain-height >* img'
