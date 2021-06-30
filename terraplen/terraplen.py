@@ -5,7 +5,8 @@ from terraplen.wrappers import retry
 from terraplen.exception import (DetectedAsBotException, BotDetectedStatusCode,
                                  ProductNotFoundCode, ProductNotFoundException)
 from terraplen.utils import find_number, remove_whitespace
-from terraplen.models import (Offer, OfferList, Review, ReviewList, Country, UserAgents, Currency, Language)
+from terraplen.models import (Offer, OfferList, Review, ReviewList, Country, UserAgents, Currency, Language,
+                              ReviewSettings)
 
 from bs4 import BeautifulSoup
 import json
@@ -212,33 +213,9 @@ class Scraper:
                                    "used_acceptable": used_acceptable, "merchant": merchant, "page": page})
 
     @retry
-    def get_review(self, asin: str, page=1) -> ReviewList:  # Should I add some `settings`?
+    def get_review(self, asin: str, page=1, setting: ReviewSettings = ReviewSettings()) -> ReviewList:
 
-        page_size = 10
-
-        settings = {'sortBy': 'recent',  # 'recent' or 'helpful'(default)
-                    'reviewerType': 'all_reviews',
-                    # 'avp_only_reviews' (Verified purchase) or
-                    # 'all_reviews'(default)
-                    'formatType': '',
-                    # 'current_format' or 'all_formats'(default)
-                    'mediaType': '',
-                    # 'media_reviews_only' or 'all_contents'(default)
-                    'filterByStar': 'all_stars',
-                    # {'one', 'two', 'three', 'four', 'five'} + '_star' or
-                    # 'positive' or 'critical' or 'all_stars'(default)
-                    'pageNumber': page,  # default=1
-                    'filterByLanguage': '',
-                    'filterByKeyword': '',  # search
-                    'shouldAppend': 'undefined',
-                    'deviceType': 'desktop',
-                    'canShowIntHeader': 'undefined',
-                    'reftag': 'cm_cr_getr_d_paging_btm_next_{}'.format(page),
-                    'pageSize': page_size,  # default=10, max=20, min=1
-                    'asin': asin,
-                    'scope': 'reviewsAjax1'}
-
-        resp = self.post_with_update_cookie(self._url_reviews(page), data=settings)
+        resp = self.post_with_update_cookie(self._url_reviews(page), data=setting.to_dict(asin))
         review = []
 
         for dat in resp.text.split(selector.Review.StreamStrip):

@@ -1,5 +1,8 @@
 from enum import Enum
+from warnings import warn
 from typing import List, Dict, Union, Tuple
+import os
+from terraplen.utils import thumb_size
 
 
 class UserAgents:
@@ -302,5 +305,115 @@ class ReviewSettings:
                  format_type: ReviewParameter.FormatType = ReviewParameter.FormatType.AllFormats,
                  media_type: ReviewParameter.MediaType = ReviewParameter.MediaType.AllContents,
                  filter_by_star: ReviewParameter.FilterByStar = ReviewParameter.FilterByStar.AllStars,
-                 page_number: int = 1, filter_by_language: str = ''):
+                 page_number: int = 1, filter_by_language: str = '', keyword='', page_size=10):
+        self.sort_by = sort_by
+        self.reviewer_type = reviewer_type
+        self.format_type = format_type
+        self.media_type = media_type
+        self.filter_by_star = filter_by_star
+        self.page_number = page_number
+        self.filter_by_language = filter_by_language
+        self.keyword = keyword
+        if not 1 <= page_size <= 20:
+            warn('page_size `{}` is invalid. needs to be between 1 and 20. set to 10.'.format(page_size))
+            page_size = 10
+        self.page_size = page_size
+
+    def to_dict(self, asin: str) -> Dict:
+        return {'sortBy': self.sort_by.value,
+                # 'recent' or 'helpful'(default)
+
+                'reviewerType': self.reviewer_type.value,
+                # 'avp_only_reviews' (Verified purchase) or
+                # 'all_reviews'(default)
+
+                'formatType': self.format_type.value,
+                # 'current_format' or 'all_formats'(default)
+
+                'mediaType': self.media_type.value,
+                # 'media_reviews_only' or 'all_contents'(default)
+
+                'filterByStar': self.filter_by_star.value,
+                # {'one', 'two', 'three', 'four', 'five'} + '_star' or
+                # 'positive' or 'critical' or 'all_stars'(default)
+
+                'pageNumber': self.page_number,  # default=1
+                'filterByLanguage': self.filter_by_language,
+                'filterByKeyword': self.keyword,  # search
+                'shouldAppend': 'undefined',
+                'deviceType': 'desktop',
+                'canShowIntHeader': 'undefined',
+                'reftag': 'cm_cr_getr_d_paging_btm_next_{}'.format(self.page_number),
+                'pageSize': self.page_size,  # default=10, max=20, min=1
+                'asin': asin,
+                'scope': 'reviewsAjax1'}
+
+
+class VideoImage:
+    def __init__(self, url: str, width: int, height: int, extension: str = ''):
+        self.url = url
+        self.width = width
+        self.height = height
+        if not extension:
+            extension = os.path.splitext(url)[1][1:]
+        self.extension = extension
+
+
+class Video:
+    def __init__(self, duration_seconds: int, duration_timestamp: str, is_hero_video: bool, language_code: str,
+                 slate: VideoImage, thumb: VideoImage, title: str, url: str, variant: 'Product', width: int,
+                 height: int):
+        self.duration_seconds = duration_seconds
+        self.duration_timestamp = duration_timestamp
+        self.is_hero_video = is_hero_video
+        self.language_code = language_code
+        self.slate = slate
+        self.thumb = thumb
+        self.title = title
+        self.url = url
+        self.variant = variant
+        self.width = width
+        self.height = height
+
+    @classmethod
+    def from_json(cls, data: Dict, variation: 'ProductVariations') -> 'Video':
+        if not data['isVideo']:
+            raise TypeError("This is not a video.")
+        slate = VideoImage(data['slateUrl'], data['slateHash']['width'],
+                           data['slateHash']['height'], data['slateHash']['extension'])
+        thumb = VideoImage(data['thumbUrl'], *thumb_size(data['thumbUrl']))
+        return Video(duration_seconds=data['durationSeconds'], duration_timestamp=data['durationTimestamp'],
+                     is_hero_video=data['isHeroVideo'], language_code=data['languageCode'], slate=slate,
+                     thumb=thumb, title=data['title'], url=data['url'], variant=variation[data['variant']],
+                     width=data['videoWidth'], height=data['videoHeight'])
+
+
+class Variation:
+    def __init__(self, category: 'Category', name: str, value: int):
+        self.category = category
+        self.name = name
+        self.value = value
+
+
+class Category:
+    def __init__(self, name: str, variations: List[Variation]):
+        self.name = name
+        self.variations = variations
+
+
+class ProductImage:
+    def __init__(self, hires: str, large: str, ):
+
+class Product:
+    pass
+
+
+class ProductVariations:
+    def __init__(self, products: List[Product], landing: Product, parent_asin: str, title: str, videos: List[Video],
+                 categories: List[Category]):
         pass
+
+    def __getitem__(self, item):
+        if item in self.variants:
+            return self.variant_to_product[item]
+        raise ValueError('variant `{}` is invalid'.format(item))

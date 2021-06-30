@@ -4,9 +4,11 @@ import json
 from pprint import pprint
 
 # #aod-end-of-results
-asin = 'B08GG1QSRR'
-asin = 'B084G2VWFW'
-asin = 'B07RPQRPR5'
+asin = 'B07RPQRPR5'  # chokinbako twisting
+asin = 'B084G2VWFW'  # backpack not twisting
+asin = 'B07HJ52LKD'  # chokinbako not twisting
+asin = 'B08GG1QSRR'  # DualSense twisting
+asin = 'B09319VMGT'  # tales-of-arise twisting video
 s = Scraper(Country.Japan, currency=Currency.CanadianDollar, language=Language.Malayalam)
 s1, s2 = s.get_product(asin)
 pprint(json.loads(s1.replace('\n', '').replace(',]', ']').replace(',}', '}')))

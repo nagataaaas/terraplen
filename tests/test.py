@@ -1,4 +1,4 @@
-from terraplen.utils import find_number
+from terraplen.utils import find_number, remove_whitespace, thumb_size
 from terraplen import Country
 from terraplen import Scraper
 import pytest
@@ -14,6 +14,14 @@ class TestUtil:
         assert find_number('その他307個のオプション') == 307
         with pytest.raises(ValueError):
             find_number('%')
+
+    def test_remove_whitespace(self):
+        assert remove_whitespace('    \t\t  \n') == ''
+        assert remove_whitespace('      lonely...       ') == 'lonely...'
+
+    def test_thumb_size(self):
+        assert thumb_size('https://m.media-amazon.com/images/I/81jPsqOAU6S.SX38_SY50_CR,0,0,38,50_BG85,85,85_BR-120_PKdp-play-icon-overlay__.png') == (38, 50)
+        assert thumb_size('https://m.media-amazon.com/images/I/81jPsqOAU6S.SX380_SY500_CR,0,0,38,50_BG85,85,85_BR-120_PKdp-play-icon-overlay__.png') == (380, 500)
 
 
 class TestCountry:
