@@ -1,5 +1,6 @@
 import re
-from typing import Tuple
+from typing import Tuple, Dict, List, Generator
+import json
 
 
 def find_number(text: str) -> float:
@@ -16,3 +17,16 @@ def remove_whitespace(text: str) -> str:
 def thumb_size(url: str) -> Tuple[int, int]:
     match = re.match(r'https://m.media-amazon.com/images/I/[^.]+\.SX(\d+)_SY(\d+)_[^.]+\.png', url)
     return int(match.group(1)), int(match.group(2))
+
+
+def to_json(text: str) -> Dict:
+    return json.loads(text.replace('\n', '').replace("'", '"').replace(',]', ']').replace(',}', '}'))
+
+
+def product(categories: List, depth=0):
+    for variation in categories[depth].variations:
+        if len(categories) > depth + 1:
+            for p in product(categories, depth + 1):
+                yield [variation] + p[0], '{} {}'.format(variation.name, p[1])
+        else:
+            yield [variation], variation.name

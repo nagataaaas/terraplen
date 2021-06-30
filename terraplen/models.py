@@ -190,14 +190,9 @@ class OfferList:
         self.settings = settings
 
     def __repr__(self):
-        offers_repr_length = 100
-        offers_repr = repr(self.offers)
-        print_offers = offers_repr[:offers_repr_length]
-        if offers_repr[offers_repr_length:]:
-            print_offers += '...'
         return 'OfferList(product_name={}, offer_count={}, ' \
                'offers={}, page={}, settings={})'.format(repr(self.product_name), self.offer_count,
-                                                         print_offers, self.page, repr(self.settings)[:30] + '...')
+                                                         repr(self.offers), self.page, repr(self.settings))
 
 
 class Review:
@@ -212,32 +207,22 @@ class Review:
         self.body = body
 
     def __repr__(self):
-        body_repr_length = 100
-        body_repr = repr(self.body)
-        print_body = body_repr[:body_repr_length]
-        if body_repr[body_repr_length:]:
-            print_body += '...'
         return 'Review(reviewer={}, reviewer_url={}, review_url={}, title={}, rating={}, helpful={}, body={})'.format(
             repr(self.reviewer), repr(self.reviewer_url), repr(self.review_url),
-            repr(self.title), self.rating, self.helpful, print_body)
+            repr(self.title), self.rating, self.helpful, repr(self.body))
 
 
 class ReviewList:
-    def __init__(self, reviews: List[Review], asin: str, country: Country, settings: Dict, last_page=False):
+    def __init__(self, reviews: List[Review], asin: str, country: Country, settings: 'ReviewSettings', last_page=False):
         self.reviews = reviews
         self.asin = asin
         self.country = country
         self.settings = settings
-        self.page = settings['pageNumber']
+        self.page = settings.page_number
         self.last_page = last_page
 
     def __repr__(self):
-        reviews_repr_length = 100
-        reviews_repr = repr(self.reviews)
-        print_reviews = reviews_repr[:reviews_repr_length]
-        if reviews_repr[reviews_repr_length:]:
-            print_reviews += '...'
-        return 'ReviewList(reviews={}, asin={}, country={}, page={}, last_page={})'.format(print_reviews,
+        return 'ReviewList(reviews={}, asin={}, country={}, page={}, last_page={})'.format(repr(self.reviews),
                                                                                            repr(self.asin),
                                                                                            self.country,
                                                                                            self.page, self.last_page)
@@ -376,7 +361,7 @@ class Video:
         self.height = height
 
     @classmethod
-    def from_json(cls, data: Dict, variation: 'ProductVariations') -> 'Video':
+    def from_json(cls, data: Dict) -> 'Video':
         if not data['isVideo']:
             raise TypeError("This is not a video.")
         slate = VideoImage(data['slateUrl'], data['slateHash']['width'],
@@ -384,36 +369,155 @@ class Video:
         thumb = VideoImage(data['thumbUrl'], *thumb_size(data['thumbUrl']))
         return Video(duration_seconds=data['durationSeconds'], duration_timestamp=data['durationTimestamp'],
                      is_hero_video=data['isHeroVideo'], language_code=data['languageCode'], slate=slate,
-                     thumb=thumb, title=data['title'], url=data['url'], variant=variation[data['variant']],
+                     thumb=thumb, title=data['title'], url=data['url'], variant=data['variant'],
                      width=data['videoWidth'], height=data['videoHeight'])
+
+    def __repr__(self):
+        return 'Video(duration_seconds={}, ' \
+               'language_code={}, title={}, url={})'.format(self.duration_seconds, repr(self.language_code),
+                                                            repr(self.title), repr(self.url))
 
 
 class Variation:
-    def __init__(self, category: 'Category', name: str, value: int):
-        self.category = category
+    def __init__(self, name: str, value: int):
         self.name = name
         self.value = value
 
+    def __repr__(self):
+        return 'Variation(name={}, value={})'.format(repr(self.name), self.value)
+
+    def __eq__(self, other):
+        return isinstance(other, Variation) and self.name == other.name and self.value == other.value
+
 
 class Category:
-    def __init__(self, name: str, variations: List[Variation]):
+    def __init__(self, name: str, display_name: str, variations: List[Variation]):
         self.name = name
+        self.display_name = display_name
         self.variations = variations
+
+    def __repr__(self):
+        return 'Category(name={}, display_name={}, variations={})'.format(repr(self.name),
+                                                                          repr(self.display_name),
+                                                                          repr(self.variations))
 
 
 class ProductImage:
-    def __init__(self, hires: str, large: str, ):
+    def __init__(self, hi_res: str, large: str, thumb: str, variant: str, main: Dict[str, Tuple[int, int]]):
+        self.hi_res = hi_res
+        self.large = large
+        self.thumb = thumb
+        self.variant = variant
+        self.main = main
+
+    @classmethod
+    def from_json(cls, data: Dict) -> 'ProductImage':
+        return ProductImage(data['hiRes'], data['large'], data['thumb'], data['variant'],
+                            {k: tuple(v) for k, v in data['main'].items()})
+
+    @property
+    def largest_image(self) -> str:
+        if self.hi_res:
+            return self.hi_res
+        if self.large:
+            return self.large
+        if self.main:
+            return sorted([self.main.items()], key=lambda x: x[1])[-1][0]
+
+    def __repr__(self):
+        return 'ProductImage(hi_res={}, variant={})'.format(repr(self.hi_res), repr(self.variant))
+
+
+class BookImage:
+    def __init__(self, main: str, thumb: str, width: int, height: int):
+        self.main = main
+        self.thumb = thumb
+        self.width = width
+        self.height = height
+
+    @classmethod
+    def from_json(cls, data: Dict) -> 'BookImage':
+        return BookImage(data['mainUrl'], data['thumbUrl'], *data['dimensions'])
+
+    @property
+    def largest_image(self) -> str:
+        if self.main:
+            return self.main
+        return self.thumb
+
+    def __repr__(self):
+        return 'BookImage(main={}, thumb={}, width={}, height={})'.format(self.main, self.thumb, self.width,
+                                                                          self.height)
+
 
 class Product:
-    pass
+    def __init__(self, asin: str, variation: List[Variation], images: List[ProductImage],
+                 videos: List[Video], hero_images: List[ProductImage]):
+        self.asin = asin
+        self.variation = variation
+        self.images = images
+        self.videos = videos
+        self.hero_images = hero_images
+
+    def __repr__(self):
+        return 'Product(asin={}, variation={}, images={}, ' \
+               'videos={}, hero_images={})'.format(repr(self.asin), repr(self.variation),
+                                                   repr(self.images), repr(self.videos), repr(self.hero_images))
+
+
+class BookVariation:
+    def __init__(self, name: str, price: str, asin: str):
+        self.name = name
+        self.price = price
+        self.asin = asin
+
+    def __repr__(self):
+        return 'BookVariation(name={}, price={}, asin={})'.format(repr(self.name), repr(self.price), repr(self.asin))
+
+
+class Book:
+    def __init__(self, asin: str, title: str, images: List[BookImage], videos: List[Video],
+                 variations: List[BookVariation], current_variation: BookVariation):
+        self.asin = asin
+        self.title = title
+        self.images = images
+        self.videos = videos
+        self.variations = variations
+        self.current_variation = current_variation
+
+    def __repr__(self):
+        return 'Book(asin={}, title={}, images={}, videos={}, ' \
+               'variations={}, current_variation={})'.format(repr(self.asin), repr(self.title),
+                                                             repr(self.images), repr(self.videos),
+                                                             repr(self.variations), repr(self.current_variation))
+
+
+class Kindle:
+    def __init__(self, asin: str, title: str, image: BookImage,
+                 variations: List[BookVariation], current_variation: BookVariation):
+        self.asin = asin
+        self.title = title
+        self.image = image
+        self.variations = variations
+        self.current_variation = current_variation
+
+    def __repr__(self):
+        return 'Kindle(asin={}, title={}, image={}, ' \
+               'variations={}, current_variation={})'.format(repr(self.asin), repr(self.title), repr(self.image),
+                                                             repr(self.variations), repr(self.current_variation))
 
 
 class ProductVariations:
-    def __init__(self, products: List[Product], landing: Product, parent_asin: str, title: str, videos: List[Video],
+    def __init__(self, products: List[Product], landing: Product, parent_asin: str, title: str,
                  categories: List[Category]):
-        pass
+        self.products = products
+        self.landing = landing
+        self.parent_asin = parent_asin
+        self.title = title
+        self.categories = categories
 
-    def __getitem__(self, item):
-        if item in self.variants:
-            return self.variant_to_product[item]
-        raise ValueError('variant `{}` is invalid'.format(item))
+    def __repr__(self):
+        return 'ProductVariations(products={}, landing={}, ' \
+               'parent_asin={}, title={}, categories={})'.format(repr(self.products), repr(self.landing),
+                                                                 repr(self.parent_asin), repr(self.title),
+                                                                 repr(self.categories))

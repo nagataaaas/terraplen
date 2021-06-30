@@ -5,15 +5,19 @@ from pprint import pprint
 
 # #aod-end-of-results
 asin = 'B07RPQRPR5'  # chokinbako twisting
-asin = 'B084G2VWFW'  # backpack not twisting
-asin = 'B07HJ52LKD'  # chokinbako not twisting
 asin = 'B08GG1QSRR'  # DualSense twisting
+asin = 'B084G2VWFW'  # backpack not twisting
+asin = 'B097XB91KH'  # book single
+asin = 'B00GRKD6XU'  # book twisting kindle
+asin = '4798121967'  # book twisting
+asin = 'B07HJ52LKD'  # chokinbako not twisting
 asin = 'B09319VMGT'  # tales-of-arise twisting video
+
 s = Scraper(Country.Japan, currency=Currency.CanadianDollar, language=Language.Malayalam)
-s1, s2 = s.get_product(asin)
-pprint(json.loads(s1.replace('\n', '').replace(',]', ']').replace(',}', '}')))
-# pprint(json.loads(s2.replace('\n', '').replace(',]', ']').replace("'", '"')))
-pprint(json.loads(s2.replace('\n', '').replace("'", '"').replace(',]', ']').replace(',}', '}')))
+d = s.get_product(asin)
+pprint(d)
+# for img in d.images:
+#     print(img.largest_image)
 exit()
 print(s.get_offers(asin, page=1).offers)
 print(s.get_offers(asin, page=2).offers)
