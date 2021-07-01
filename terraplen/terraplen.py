@@ -175,33 +175,54 @@ class Scraper:
                 return ProductVariations(products, landing, parent_asin, title, categories)
 
 
-            elif soup.select('#tmmSwatches'):  # maybe book ...? complete
+            elif soup.select('#tmmSwatches'):  # maybe book ...?
                 twister = soup.select_one('#booksImageBlock_feature_div > script:nth-child(2)')
-                twister = re.findall(r'''^["']imageGalleryData["'].+$''', twister.string, re.MULTILINE)[0]
-                twister = '{' + twister + '}'
-                image, twister = to_json(image), to_json(twister)
+                if twister:  # book? complete
+                    twister = re.findall(r'''^["']imageGalleryData["'].+$''', twister.string, re.MULTILINE)[0]
+                    twister = '{' + twister + '}'
+                    image, twister = to_json(image), to_json(twister)
 
-                variations = []
-                variation = None
-                types, values = (soup.select('li.swatchElement > span > span > span > a > span:first-child'),
-                                 soup.select('li.swatchElement > span > span > span > a > span > span.a-size-base'))
-                if not types:
-                    warn("looks like terraplen couldn't get proper html")
-                for type_, value in zip(types, values):
-                    if 'a-color-price' in value['class']:
-                        _asin = asin
-                    else:
-                        _asin = type_.parent['href'].rsplit('/')[-2]
-                    val = BookVariation(type_.text.strip(), value.text.strip(), _asin)
-                    if 'a-color-price' in value['class']:
-                        variation = val
-                    variations.append(val)
+                    variations = []
+                    variation = None
+                    types, values = (soup.select('li.swatchElement > span > span > span > a > span:first-child'),
+                                     soup.select('li.swatchElement > span > span > span > a > span > span.a-size-base'))
+                    if not types:
+                        warn("looks like terraplen couldn't get proper html")
+                    for type_, value in zip(types, values):
+                        if 'a-color-price' in value['class']:
+                            _asin = asin
+                        else:
+                            _asin = type_.parent['href'].rsplit('/')[-2]
+                        val = BookVariation(type_.text.strip(), value.text.strip(), _asin)
+                        if 'a-color-price' in value['class']:
+                            variation = val
+                        variations.append(val)
 
-                title = html.unescape(image['title'])
-                images = [BookImage.from_json(data) for data in twister['imageGalleryData']]
-                videos = [Video.from_json(data) for data in image['videos']]
-                return Book(asin=asin, title=title, images=images, videos=videos, variations=variations,
-                            current_variation=variation)
+                    title = html.unescape(image['title'])
+                    images = [BookImage.from_json(data) for data in twister['imageGalleryData']]
+                    videos = [Video.from_json(data) for data in image['videos']]
+                    return Book(asin=asin, title=title, images=images, videos=videos, variations=variations,
+                                current_variation=variation)
+                else:  # movie?
+                    print(image)
+                    image = to_json(image)
+
+                    variations = []
+                    variation = None
+                    types, values = (soup.select('li.swatchElement > span > span > span > a > span:first-child'),
+                                     soup.select('li.swatchElement > span > span > span > a > span > span.a-size-base'))
+                    if not types:
+                        warn("looks like terraplen couldn't get proper html")
+                    for type_, value in zip(types, values):
+                        if 'a-color-price' in value['class']:
+                            _asin = asin
+                        else:
+                            _asin = type_.parent['href'].rsplit('/')[-2]
+                        val = BookVariation(type_.text.strip(), value.text.strip(), _asin)
+                        if 'a-color-price' in value['class']:
+                            variation = val
+                        variations.append(val)
+                    print(variations)
             else:  # single product, complete
                 twister = re.search(r"var data = ({.+});",
                                     soup.select_one('#imageBlock_feature_div > script:nth-child(3)').string,
@@ -242,6 +263,9 @@ class Scraper:
             if soup.select_one('#productSubtitle'):
                 title = '{} {}'.format(title, soup.select_one('#productSubtitle').text.strip())
             return Kindle(asin, title, img, variations, variation)
+        elif soup.select('#a-page > div.av-page-desktop.avu-retail-page > script:nth-child(9)'):  # movie
+            data = soup.select_one('#a-page > div.av-page-desktop.avu-retail-page > script:nth-child(9)')
+            print(json.loads(data.string))
 
         # TODO: support movie
 
