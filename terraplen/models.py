@@ -428,7 +428,7 @@ class ProductImage:
         return 'ProductImage(hi_res={}, variant={})'.format(repr(self.hi_res), repr(self.variant))
 
 
-class BookImage:
+class MediaImage:
     def __init__(self, main: str, thumb: str, width: int, height: int):
         self.main = main
         self.thumb = thumb
@@ -436,8 +436,8 @@ class BookImage:
         self.height = height
 
     @classmethod
-    def from_json(cls, data: Dict) -> 'BookImage':
-        return BookImage(data['mainUrl'], data['thumbUrl'], *data['dimensions'])
+    def from_json(cls, data: Dict) -> 'MediaImage':
+        return MediaImage(data['mainUrl'], data['thumbUrl'], *data['dimensions'])
 
     @property
     def largest_image(self) -> str:
@@ -446,38 +446,42 @@ class BookImage:
         return self.thumb
 
     def __repr__(self):
-        return 'BookImage(main={}, thumb={}, width={}, height={})'.format(self.main, self.thumb, self.width,
-                                                                          self.height)
+        return 'MediaImage(main={}, thumb={}, width={}, height={})'.format(self.main, self.thumb, self.width,
+                                                                           self.height)
 
 
 class Product:
-    def __init__(self, asin: str, variation: List[Variation], images: List[ProductImage],
-                 videos: List[Video], hero_images: List[ProductImage]):
+    def __init__(self, asin: str, title: str, variation: List[Variation], images: List[ProductImage],
+                 videos: List[Video], hero_images: List[ProductImage], hero_videos=List[Video]):
         self.asin = asin
+        self.title = title
         self.variation = variation
         self.images = images
         self.videos = videos
         self.hero_images = hero_images
+        self.hero_videos = hero_videos
 
     def __repr__(self):
-        return 'Product(asin={}, variation={}, images={}, ' \
-               'videos={}, hero_images={})'.format(repr(self.asin), repr(self.variation),
-                                                   repr(self.images), repr(self.videos), repr(self.hero_images))
+        return 'Product(asin={}, title={}, variation={}, images={}, ' \
+               'videos={}, hero_images={}, hero_videos={})'.format(repr(self.asin), repr(self.title),
+                                                                   repr(self.variation), repr(self.images),
+                                                                   repr(self.videos), repr(self.hero_images),
+                                                                   repr(self.hero_videos))
 
 
-class BookVariation:
+class MediaVariation:
     def __init__(self, name: str, price: str, asin: str):
         self.name = name
         self.price = price
         self.asin = asin
 
     def __repr__(self):
-        return 'BookVariation(name={}, price={}, asin={})'.format(repr(self.name), repr(self.price), repr(self.asin))
+        return 'MediaVariation(name={}, price={}, asin={})'.format(repr(self.name), repr(self.price), repr(self.asin))
 
 
 class Book:
-    def __init__(self, asin: str, title: str, images: List[BookImage], videos: List[Video],
-                 variations: List[BookVariation], current_variation: BookVariation):
+    def __init__(self, asin: str, title: str, images: List[MediaImage], videos: List[Video],
+                 variations: List[MediaVariation], current_variation: MediaVariation):
         self.asin = asin
         self.title = title
         self.images = images
@@ -492,9 +496,26 @@ class Book:
                                                              repr(self.variations), repr(self.current_variation))
 
 
+class Movie:
+    def __init__(self, asin: str, title: str, images: List[ProductImage], videos: List[Video],
+                 variations: List[MediaVariation], current_variation: MediaVariation):
+        self.asin = asin
+        self.title = title
+        self.images = images
+        self.videos = videos
+        self.variations = variations
+        self.current_variation = current_variation
+
+    def __repr__(self):
+        return 'Movie(asin={}, title={}, images={}, videos={}, ' \
+               'variations={}, current_variation={})'.format(repr(self.asin), repr(self.title),
+                                                             repr(self.images), repr(self.videos),
+                                                             repr(self.variations), repr(self.current_variation))
+
+
 class Kindle:
-    def __init__(self, asin: str, title: str, image: BookImage,
-                 variations: List[BookVariation], current_variation: BookVariation):
+    def __init__(self, asin: str, title: str, image: MediaImage,
+                 variations: List[MediaVariation], current_variation: MediaVariation):
         self.asin = asin
         self.title = title
         self.image = image
@@ -521,3 +542,39 @@ class ProductVariations:
                'parent_asin={}, title={}, categories={})'.format(repr(self.products), repr(self.landing),
                                                                  repr(self.parent_asin), repr(self.title),
                                                                  repr(self.categories))
+
+
+class PrimeVideoOption:
+    def __init__(self, asin: str, is_prime: bool, purchase_type: str, price: str, video_quality: str):
+        self.asin = asin
+        self.is_prime = is_prime
+        self.purchase_type = purchase_type
+        self.price = price
+        self.video_quality = video_quality
+
+    def __repr__(self):
+        return 'PrimeVideoOption(asin={}, is_prime={}, ' \
+               'purchase_type={}, price={}, video_quality={})'.format(repr(self.asin), self.is_prime,
+                                                                      repr(self.purchase_type),
+                                                                      repr(self.price),
+                                                                      repr(self.video_quality))
+
+
+class PrimeVideoMovie:
+    def __init__(self, asin: str, title: str, options: List[PrimeVideoOption]):
+        self.asin = asin
+        self.title = title
+        self.options = options
+
+    def __repr__(self):
+        return 'PrimeVideoMovie(asin={!r}, title={!r}, options={!r})'.format(repr(self.asin), self.title, self.options)
+
+
+class PrimeVideoTV:
+    def __init__(self, asin: str, title: str, options: List[PrimeVideoOption]):
+        self.asin = asin
+        self.title = title
+        self.options = options
+
+    def __repr__(self):
+        return 'PrimeVideoTV(asin={!r}, title={!r}, options={!r})'.format(repr(self.asin), self.title, self.options)
