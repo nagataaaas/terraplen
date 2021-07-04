@@ -7,7 +7,8 @@ from terraplen.exception import (DetectedAsBotException, BotDetectedStatusCode,
 from terraplen.utils import find_number, remove_whitespace, to_json, product
 from terraplen.models import (Offer, OfferList, Review, ReviewList, Country, UserAgents, Currency, Language,
                               ReviewSettings, ProductImage, Product, Video, MediaImage, Book, Kindle, MediaVariation,
-                              Variation, ProductVariations, Category, Movie, PrimeVideoOption)
+                              Variation, ProductVariations, Category, Movie, PrimeVideoOption, PrimeVideoTVSeason,
+                              PrimeVideoMovie, PrimeVideoTV)
 
 from bs4 import BeautifulSoup
 import json
@@ -221,7 +222,7 @@ class Scraper:
                 images = [ProductImage.from_json(data) for data in twister['colorImages']['initial']]
                 hero_images = [ProductImage.from_json(data) for data in twister['heroImage']['initial']]
                 videos = [Video.from_json(data) for data in image['videos']]
-                hero_videos = [Video.from_json(data) for data in image['heroVideo']]
+                hero_videos = [Video.from_json(data) for data in image.get('heroVideo', [])]
 
                 return Product(asin=asin, title=title, variation=[], images=images, videos=videos,
                                hero_images=hero_images, hero_videos=hero_videos)
@@ -240,15 +241,18 @@ class Scraper:
             data = soup.select_one('#a-page > div.av-page-desktop.avu-retail-page > script:nth-child(9)')
             data = json.loads(data.string)
 
-            print(data)
-
             entity_type = list(data['props']['state']['detail']['headerDetail'].values())[0]['entityType']
             if entity_type in ('Movie', 'TV Show'):
                 base_asin = data['initArgs']['titleID']
                 realm = data['initArgs']['realm']
-                locale, territory = data['initArgs']['context']['locale'], data['initArgs']['context']['recordTerritory']
-                svod = list(data['props']['state']['action']['atf'].values())[0]['acquisitionActions'].get('svodWinners')
-                more_way = list(data['props']['state']['action']['atf'].values())[0]['acquisitionActions'].get('moreWaysToWatch')
+                locale, territory = data['initArgs']['context']['locale'], data['initArgs']['context'][
+                    'recordTerritory']
+                svod = list(data['props']['state']['action']['atf'].values())[0]['acquisitionActions'].get(
+                    'svodWinners')
+                title = list(data['props']['state']['detail']['headerDetail'].values())[0].get('parentTitle') or \
+                        list(data['props']['state']['detail']['headerDetail'].values())[0].get('title')
+                more_way = list(data['props']['state']['action']['atf'].values())[0]['acquisitionActions'].get(
+                    'moreWaysToWatch')
 
                 option_values = []
 
@@ -262,16 +266,15 @@ class Scraper:
                                 purchase_type, *_, price = child['label'].split(' ')
                                 video_quality = child['purchaseData']['videoQuality']
                                 option_values.append(PrimeVideoOption(asin, True, purchase_type, price, video_quality))
-                print(option_values)
+
             if entity_type == 'Movie':  # movie
-                print('movie')
+                return PrimeVideoMovie(asin, title, option_values, realm, locale, territory)
             elif entity_type == 'TV Show':  # tv show
-                print('tv show')
-                return 1
+                seasons: List[PrimeVideoTVSeason] = [PrimeVideoTVSeason.from_json(k, v) for k, v in
+                                                     data['props']['state']['detail']['detail'].items()]
+                return PrimeVideoTV(asin, title, option_values, seasons, realm, locale, territory)
             else:
                 raise TypeError("unknown entity_type `{}`. Maybe an unavailable product.".format(entity_type))
-
-
 
         raise TypeError('unknown product type')
 

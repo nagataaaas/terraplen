@@ -3,6 +3,7 @@ from warnings import warn
 from typing import List, Dict, Union, Tuple
 import os
 from terraplen.utils import thumb_size
+from datetime import date, datetime
 
 
 class UserAgents:
@@ -174,11 +175,11 @@ class Offer:
         self.sold_by_url = sold_by_url
 
     def __repr__(self):
-        return ('Offer(price={}, currency={}, approx_review={}, condition={}, '
-                'ships_from={}, sold_by={}, sold_by_url={})').format(self.price, repr(self.currency),
-                                                                     self.approx_review, repr(self.condition),
-                                                                     repr(self.ships_from), repr(self.sold_by),
-                                                                     repr(self.sold_by_url))
+        return ('Offer(price={}, currency={!r}, approx_review={}, condition={!r}, '
+                'ships_from={!r}, sold_by={!r}, sold_by_url={!r})').format(self.price, self.currency,
+                                                                           self.approx_review, self.condition,
+                                                                           self.ships_from, self.sold_by,
+                                                                           self.sold_by_url)
 
 
 class OfferList:
@@ -190,9 +191,9 @@ class OfferList:
         self.settings = settings
 
     def __repr__(self):
-        return 'OfferList(product_name={}, offer_count={}, ' \
-               'offers={}, page={}, settings={})'.format(repr(self.product_name), self.offer_count,
-                                                         repr(self.offers), self.page, repr(self.settings))
+        return 'OfferList(product_name={!r}, offer_count={}, ' \
+               'offers={!r}, page={}, settings={!r})'.format(self.product_name, self.offer_count,
+                                                             self.offers, self.page, self.settings)
 
 
 class Review:
@@ -207,9 +208,9 @@ class Review:
         self.body = body
 
     def __repr__(self):
-        return 'Review(reviewer={}, reviewer_url={}, review_url={}, title={}, rating={}, helpful={}, body={})'.format(
-            repr(self.reviewer), repr(self.reviewer_url), repr(self.review_url),
-            repr(self.title), self.rating, self.helpful, repr(self.body))
+        return 'Review(reviewer={!r}, reviewer_url={!r}, review_url={!r}, title={!r}, rating={}, helpful={}, body={!r})'.format(
+            self.reviewer, self.reviewer_url, self.review_url,
+            self.title, self.rating, self.helpful, self.body)
 
 
 class ReviewList:
@@ -222,10 +223,11 @@ class ReviewList:
         self.last_page = last_page
 
     def __repr__(self):
-        return 'ReviewList(reviews={}, asin={}, country={}, page={}, last_page={})'.format(repr(self.reviews),
-                                                                                           repr(self.asin),
-                                                                                           self.country,
-                                                                                           self.page, self.last_page)
+        return 'ReviewList(reviews={!r}, asin={!r}, country={}, page={}, last_page={})'.format(self.reviews,
+                                                                                               self.asin,
+                                                                                               self.country,
+                                                                                               self.page,
+                                                                                               self.last_page)
 
 
 class ReviewParameter:
@@ -374,8 +376,8 @@ class Video:
 
     def __repr__(self):
         return 'Video(duration_seconds={}, ' \
-               'language_code={}, title={}, url={})'.format(self.duration_seconds, repr(self.language_code),
-                                                            repr(self.title), repr(self.url))
+               'language_code={!r}, title={!r}, url={!r})'.format(self.duration_seconds, self.language_code,
+                                                                  self.title, self.url)
 
 
 class Variation:
@@ -384,7 +386,7 @@ class Variation:
         self.value = value
 
     def __repr__(self):
-        return 'Variation(name={}, value={})'.format(repr(self.name), self.value)
+        return 'Variation(name={!r}, value={})'.format(self.name, self.value)
 
     def __eq__(self, other):
         return isinstance(other, Variation) and self.name == other.name and self.value == other.value
@@ -397,9 +399,9 @@ class Category:
         self.variations = variations
 
     def __repr__(self):
-        return 'Category(name={}, display_name={}, variations={})'.format(repr(self.name),
-                                                                          repr(self.display_name),
-                                                                          repr(self.variations))
+        return 'Category(name={!r}, display_name={!r}, variations={!r})'.format(self.name,
+                                                                                self.display_name,
+                                                                                self.variations)
 
 
 class ProductImage:
@@ -412,8 +414,8 @@ class ProductImage:
 
     @classmethod
     def from_json(cls, data: Dict) -> 'ProductImage':
-        return ProductImage(data['hiRes'], data['large'], data['thumb'], data['variant'],
-                            {k: tuple(v) for k, v in data['main'].items()})
+        return ProductImage(data.get('hiRes'), data.get('large'), data.get('thumb'), data.get('variant'),
+                            {k: tuple(v) for k, v in data.get('main', {}).items()})
 
     @property
     def largest_image(self) -> str:
@@ -425,7 +427,7 @@ class ProductImage:
             return sorted([self.main.items()], key=lambda x: x[1])[-1][0]
 
     def __repr__(self):
-        return 'ProductImage(hi_res={}, variant={})'.format(repr(self.hi_res), repr(self.variant))
+        return 'ProductImage(hi_res={!r}, variant={!r})'.format(self.hi_res, self.variant)
 
 
 class MediaImage:
@@ -462,11 +464,11 @@ class Product:
         self.hero_videos = hero_videos
 
     def __repr__(self):
-        return 'Product(asin={}, title={}, variation={}, images={}, ' \
-               'videos={}, hero_images={}, hero_videos={})'.format(repr(self.asin), repr(self.title),
-                                                                   repr(self.variation), repr(self.images),
-                                                                   repr(self.videos), repr(self.hero_images),
-                                                                   repr(self.hero_videos))
+        return 'Product(asin={!r}, title={!r}, variation={!r}, images={!r}, ' \
+               'videos={!r}, hero_images={!r}, hero_videos={!r})'.format(self.asin, self.title,
+                                                                         self.variation, self.images,
+                                                                         self.videos, self.hero_images,
+                                                                         self.hero_videos)
 
 
 class MediaVariation:
@@ -476,7 +478,7 @@ class MediaVariation:
         self.asin = asin
 
     def __repr__(self):
-        return 'MediaVariation(name={}, price={}, asin={})'.format(repr(self.name), repr(self.price), repr(self.asin))
+        return 'MediaVariation(name={!r}, price={!r}, asin={!r})'.format(self.name, self.price, self.asin)
 
 
 class Book:
@@ -490,10 +492,10 @@ class Book:
         self.current_variation = current_variation
 
     def __repr__(self):
-        return 'Book(asin={}, title={}, images={}, videos={}, ' \
-               'variations={}, current_variation={})'.format(repr(self.asin), repr(self.title),
-                                                             repr(self.images), repr(self.videos),
-                                                             repr(self.variations), repr(self.current_variation))
+        return 'Book(asin={!r}, title={!r}, images={!r}, videos={!r}, ' \
+               'variations={!r}, current_variation={!r})'.format(self.asin, self.title,
+                                                                 self.images, self.videos,
+                                                                 self.variations, self.current_variation)
 
 
 class Movie:
@@ -507,10 +509,10 @@ class Movie:
         self.current_variation = current_variation
 
     def __repr__(self):
-        return 'Movie(asin={}, title={}, images={}, videos={}, ' \
-               'variations={}, current_variation={})'.format(repr(self.asin), repr(self.title),
-                                                             repr(self.images), repr(self.videos),
-                                                             repr(self.variations), repr(self.current_variation))
+        return 'Movie(asin={!r}, title={!r}, images={!r}, videos={!r}, ' \
+               'variations={!r}, current_variation={!r})'.format(self.asin, self.title,
+                                                                 self.images, self.videos,
+                                                                 self.variations, self.current_variation)
 
 
 class Kindle:
@@ -523,9 +525,9 @@ class Kindle:
         self.current_variation = current_variation
 
     def __repr__(self):
-        return 'Kindle(asin={}, title={}, image={}, ' \
-               'variations={}, current_variation={})'.format(repr(self.asin), repr(self.title), repr(self.image),
-                                                             repr(self.variations), repr(self.current_variation))
+        return 'Kindle(asin={!r}, title={!r}, image={!r}, ' \
+               'variations={!r}, current_variation={!r})'.format(self.asin, self.title, self.image,
+                                                                 self.variations, self.current_variation)
 
 
 class ProductVariations:
@@ -538,10 +540,10 @@ class ProductVariations:
         self.categories = categories
 
     def __repr__(self):
-        return 'ProductVariations(products={}, landing={}, ' \
-               'parent_asin={}, title={}, categories={})'.format(repr(self.products), repr(self.landing),
-                                                                 repr(self.parent_asin), repr(self.title),
-                                                                 repr(self.categories))
+        return 'ProductVariations(products={!r}, landing={!r}, ' \
+               'parent_asin={!r}, title={!r}, categories={!r})'.format(self.products, self.landing,
+                                                                       self.parent_asin, self.title,
+                                                                       self.categories)
 
 
 class PrimeVideoOption:
@@ -553,28 +555,91 @@ class PrimeVideoOption:
         self.video_quality = video_quality
 
     def __repr__(self):
-        return 'PrimeVideoOption(asin={}, is_prime={}, ' \
-               'purchase_type={}, price={}, video_quality={})'.format(repr(self.asin), self.is_prime,
-                                                                      repr(self.purchase_type),
-                                                                      repr(self.price),
-                                                                      repr(self.video_quality))
+        return 'PrimeVideoOption(asin={!r}, is_prime={}, ' \
+               'purchase_type={!r}, price={!r}, video_quality={!r})'.format(self.asin, self.is_prime,
+                                                                            self.purchase_type,
+                                                                            self.price,
+                                                                            self.video_quality)
 
 
 class PrimeVideoMovie:
-    def __init__(self, asin: str, title: str, options: List[PrimeVideoOption]):
+    def __init__(self, asin: str, title: str, options: List[PrimeVideoOption], realm: str, locale: str, territory: str):
         self.asin = asin
         self.title = title
         self.options = options
+        self.realm = realm
+        self.locale = locale
+        self.territory = territory
 
     def __repr__(self):
-        return 'PrimeVideoMovie(asin={!r}, title={!r}, options={!r})'.format(repr(self.asin), self.title, self.options)
+        return 'PrimeVideoMovie(asin={!r}, title={!r}, options={!r}, ' \
+               'realm={!r}, locale={!r}, territory={!r})'.format(self.asin, self.title, self.options,
+                                                                 self.realm, self.locale, self.territory)
+
+
+class PrimeVideoTVSeason:
+    def __init__(self, asin: str, title: str, rating: int, image_url: str, is_prime: bool, maturity_rating: str,
+                 release_date: date, season_number: int, synopsis: str, title_type: str):
+        self.asin = asin
+        self.title = title
+        self.rating = rating
+        self.image_url = image_url
+        self.is_prime = is_prime
+        self.maturity_rating = maturity_rating
+        self.release_date = release_date
+        self.season_number = season_number
+        self.synopsis = synopsis
+        self.title_type = title_type
+
+    @classmethod
+    def from_json(cls, asin: str, data: Dict) -> 'PrimeVideoTVSeason':
+        _date = datetime.strptime(data['releaseDate'], '%Y/%m/%d').date()
+        return PrimeVideoTVSeason(asin, data['title'], data['amazonRating']['value'], data['images']['packshot'],
+                                  data['isPrime'], data['ratingBadge']['id'], _date, data['seasonNumber'],
+                                  data['title'], data['titleType'])
+
+    def __repr__(self):
+        return 'PrimeVideoTVSeason(asin={!r}, title={!r}, rating={}, ' \
+               'image_url={!r}, is_prime={}, maturity_rating={!r}, ' \
+               'release_date={!r}, season_number={}, synopsis={!r}, ' \
+               'title_type={!r})'.format(self.asin, self.title, self.rating, self.image_url, self.is_prime,
+                                         self.maturity_rating, self.release_date, self.season_number, self.synopsis,
+                                         self.title_type)
 
 
 class PrimeVideoTV:
-    def __init__(self, asin: str, title: str, options: List[PrimeVideoOption]):
+    def __init__(self, asin: str, title: str, options: List[PrimeVideoOption], seasons: List[PrimeVideoTVSeason],
+                 realm: str, locale: str, territory: str):
         self.asin = asin
         self.title = title
         self.options = options
+        self.seasons = seasons
+        self.realm = realm
+        self.locale = locale
+        self.territory = territory
 
     def __repr__(self):
-        return 'PrimeVideoTV(asin={!r}, title={!r}, options={!r})'.format(repr(self.asin), self.title, self.options)
+        return 'PrimeVideoTV(asin={!r}, title={!r}, options={!r}, ' \
+               'seasons={!r}, realm={!r}, locale={!r}, territory={!r})'.format(self.asin, self.title, self.options,
+                                                                               self.seasons, self.realm, self.locale,
+                                                                               self.territory)
+
+
+class SearchOptions:
+    def __init__(self, min_price: int = None, max_price: int = None, merchant: str = None):
+        self.min_price = min_price
+        self.max_price = max_price
+        self.merchant = merchant
+
+    def to_value(self):
+        result = []
+        if self.min_price:
+            result.append('low-price={}'.format(self.min_price))
+        if self.max_price:
+            result.append('high-price={}'.format(self.max_price))
+        if self.merchant:
+            result.append('emi={}'.format(self.merchant))
+
+
+class SearchResult:
+    pass

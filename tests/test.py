@@ -1,5 +1,6 @@
 from terraplen.utils import find_number, remove_whitespace, thumb_size, product
-from terraplen import Country, Variation, Category
+from terraplen.models import Country, Variation, Category, PrimeVideoTV, Product, PrimeVideoMovie, Book, Movie, \
+    ProductVariations, Kindle
 from terraplen import Scraper
 import pytest
 
@@ -84,8 +85,18 @@ class TestScraper:
         for country in Country:
             Scraper(country, False).init()
 
-    def test_aa(self):
-        pass
+    def test_get_product_type(self):
+        assert isinstance(self.scraper.get_product('B07RPQRPR5'), ProductVariations)
+        assert isinstance(self.scraper.get_product('B08GG1QSRR'), ProductVariations)
+        assert isinstance(self.scraper.get_product('B09319VMGT'), ProductVariations)
+        assert isinstance(self.scraper.get_product('B084G2VWFW'), Product)
+        assert isinstance(self.scraper.get_product('B097XB91KH'), Book)
+        assert isinstance(self.scraper.get_product('4798121967'), Book)
+        assert isinstance(self.scraper.get_product('B00GRKD6XU'), Kindle)
+        assert isinstance(self.scraper.get_product('B08DG5HVJ6'), Movie)
+        assert isinstance(self.scraper.get_product('B076B9NB4F'), PrimeVideoTV)
+        assert isinstance(self.scraper.get_product('B07X1QB6NP'), PrimeVideoMovie)
+        assert isinstance(self.scraper.get_product('B00L9MXVVI'), PrimeVideoMovie)
 
 
 if __name__ == '__main__':
