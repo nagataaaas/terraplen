@@ -4,6 +4,6 @@ from terraplen.models import *
 
 # I love walking dead! Now I want a Walking Dead Poster for my room...
 
-scraper = Scraper(Country.UnitedStates)
+scraper = Scraper(Country.Japan)
 
-scraper.search('Walking Dead')
+print(scraper.search('充電ケーブル', merchant='amazon'))

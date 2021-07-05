@@ -8,7 +8,8 @@ from terraplen.utils import find_number, remove_whitespace, to_json, product, pa
 from terraplen.models import (Offer, OfferList, Review, ReviewList, Country, UserAgents, Currency, Language,
                               ReviewSettings, ProductImage, Product, Video, MediaImage, Book, Kindle, MediaVariation,
                               Variation, ProductVariations, Category, Movie, PrimeVideoOption, PrimeVideoTVSeason,
-                              PrimeVideoMovie, PrimeVideoTV, SearchOptions)
+                              PrimeVideoMovie, PrimeVideoTV, SearchCategory, SearchResultProduct,
+                              SearchResultProductOffers, SearchResult)
 
 from bs4 import BeautifulSoup
 import json
@@ -42,9 +43,9 @@ class Scraper:
         if not country:
             country = Country.UnitedStates
         if not language:
-            language = country.lang_and_currency()[0]
+            language = country.lang_and_currency[0]
         if not currency:
-            currency = country.lang_and_currency()[1]
+            currency = country.lang_and_currency[1]
 
         self.country = country
         self.language = language
@@ -139,8 +140,8 @@ class Scraper:
             if soup.select('#twisterContainer'):  # has options
                 twister = soup.select_one('#twisterJsInitializer_feature_div > script')
                 twister = re.search(r"var dataToReturn = ([^;]+)", twister.string).groups(1)[0]
-                twister = re.sub(r'"updateDivLists"\s*:\s*{([^}[]+\[[^]]*\],?\s*)+},', '', twister,
-                                 1)  # this is much faster
+                twister = re.sub(r'"updateDivLists"\s*:\s*{([^}[]+\[[^]]*\],?\s*)+},', '',
+                                 twister, 1)  # this is much faster
                 image, twister = to_json(image), to_json(twister)
 
                 categories: List[Category] = []
@@ -312,9 +313,9 @@ class Scraper:
             if not price:
                 continue
             if price_fraction:
-                price = float(price.text.replace(',', '') + price_fraction.text)
+                price = float(find_number(price.text.replace(',', '')) + find_number(price_fraction.text))
             else:
-                price = int(price.text.replace(',', ''))
+                price = int(find_number(price.text.replace(',', '')))
 
             currency = currency.text
             heading = remove_whitespace(heading.text)
@@ -395,10 +396,21 @@ class Scraper:
         return ReviewList(review, asin, self.country, setting, len(review) != setting.page_size)
 
     @retry
-    def search(self, asin: str):
+    def search(self, keyword: str, page: int = None, min_price: int = None, max_price: int = None, merchant: str = None,
+               category: SearchCategory = None):
+        """
+        :param keyword: Keyword to search
+        :param page: page number
+        :param min_price: minimum price to show
+        :param max_price: maximum price to show
+        :param merchant: merchantID. or, "amazon" to Amazon's Merchant ID in Current Region.
+        :param category: Category to search
+        :return:
+        """
 
-        resp = self.get_with_update_cookie('https://{}/s?k={}'.format(self.domain, asin))
+        resp = self.get_with_update_cookie(self._url_search(keyword, page, min_price, max_price, merchant, category))
         soup = BeautifulSoup(resp.text, 'lxml')
+        result = []
         for item in soup.select('div.s-result-item.s-asin'):
             asin = item['data-asin']
             name = item.select_one('h2 > a > span').string
@@ -408,46 +420,48 @@ class Scraper:
                                                item.select_one(selector.Offer.PriceSymbol))
             if price:
                 if price_fraction:
-                    price = float(price.text.replace(',', '') + price_fraction.text)
+                    price = float(find_number(price.text.replace(',', '')) + find_number(price_fraction.text))
                 else:
-                    price = int(price.text.replace(',', ''))
+                    price = int(find_number(price.text.replace(',', '')))
 
                 currency = currency.text
             options = []
 
-            for option in item.select('div.sg-row:nth-child(2) > div:nth-child(2) > div.sg-col-inner > div.a-section'):
-                if 'a-spacing-top-micro' not in option['class']:
+            for option in item.select(
+                    'div.a-section > div.sg-row:nth-child(2) > div.sg-col:nth-child(2) >* div.a-section >* div.a-section'):
+                if 'a-spacing-top-small' in option['class'] or 'a-spacing-top-mini' in option['class']:
                     option_name = option.select_one('a.a-text-bold')
                     if option_name:
                         option_name = option_name.string
 
                     _asin = option.select_one('a')
+                    if 's-sponsored-label-text' in _asin['class']:
+                        continue
                     if _asin:
                         _asin = parse_asin_from_url(_asin['href'])
-                    if not _asin:
-                        print(option.select_one('a'))
 
                     _price, _price_fraction, _currency = (option.select_one(selector.Offer.Price),
-                                                       option.select_one(selector.Offer.PriceFraction),
-                                                       option.select_one(selector.Offer.PriceSymbol))
+                                                          option.select_one(selector.Offer.PriceFraction),
+                                                          option.select_one(selector.Offer.PriceSymbol))
                     if _price:
                         if _price_fraction:
-                            _price = float(_price.text.replace(',', '') + _price_fraction.text)
+                            _price = float(find_number(_price.text.replace(',', '')) +
+                                           find_number(_price_fraction.text))
                         else:
-                            _price = int(_price.text.replace(',', ''))
+                            _price = int(find_number(_price.text.replace(',', '')))
                         _currency = _currency.string
-                    options.append([_asin, option_name, _price, _currency])
+                    if any([_asin, option_name, _price, _currency]):
+                        options.append(SearchResultProductOffers(_asin, option_name, _currency, _price))
+            price = min([price] + [p.price for p in options])
+            result.append(SearchResultProduct(asin, name, currency, price, options))
 
-
-            print([asin, name, currency, price, options])
-
-        return soup
+        return SearchResult(result, keyword, page or 1, min_price, max_price, merchant, category)
 
     def _url_top_page(self) -> str:
-        return 'https://{domain}'.format(domain=self.domain)
+        return self._abs_path('')
 
     def _url_product(self, asin: str) -> str:
-        return 'https://{domain}/dp/{asin}'.format(domain=self.domain, asin=asin)
+        return self._abs_path('/dp/{asin}'.format(asin=asin))
 
     def _url_offers(self, asin: str, prime_eligible, free_shipping, new, used_like_new,
                     used_very_good, used_good, used_acceptable, merchant: str = None, page=1) -> str:
@@ -464,20 +478,39 @@ class Scraper:
         filter_query = quote(json.dumps({name: True for name in filter_query})) if filter_query else ''
 
         if merchant:
-            return 'https://{domain}/gp/aod/ajax/ref=auto_load_aod?asin={asin}&pc=dp&pageno={page}&m={merchant}' \
-                   '{filter}'.format(domain=self.domain, asin=asin, page=page, merchant=merchant,
-                                     filter='&filter={}'.format(filter_query) if filter_query else '')
-        return 'https://{domain}/gp/aod/ajax/ref=auto_load_aod?asin={asin}&pc=dp&' \
-               'pageno={page}{filter}'.format(domain=self.domain, asin=asin, page=page,
-                                              filter='&filter={}'.format(filter_query) if filter_query else '')
+            return self._abs_path('/gp/aod/ajax/ref=auto_load_aod?asin={asin}&pc=dp&pageno={page}&m={merchant}' \
+                                  '{filter}'.format(asin=asin, page=page, merchant=merchant,
+                                                    filter='&filter={}'.format(filter_query) if filter_query else ''))
+        return self._abs_path('/gp/aod/ajax/ref=auto_load_aod?asin={asin}&pc=dp&' \
+                              'pageno={page}{filter}'.format(asin=asin, page=page,
+                                                             filter='&filter={}'.format(
+                                                                 filter_query) if filter_query else ''))
 
     def _url_rating(self, asin: str) -> str:
-        return 'https://{domain}/gp/customer-reviews/widgets/average-customer-review/' \
-               'popover/ref=dpx_acr_pop_?contextId=dpx&asin={asin}'.format(domain=self.domain, asin=asin)
+        return self._abs_path('/gp/customer-reviews/widgets/average-customer-review/' \
+                              'popover/ref=dpx_acr_pop_?contextId=dpx&asin={asin}'.format(asin=asin))
 
     def _url_reviews(self, page=1) -> str:
-        return 'https://{domain}/hz/reviews-render/ajax/reviews/get/' \
-               'ref=cm_cr_getr_d_paging_btm_next_{page}'.format(domain=self.domain, page=page)
+        return self._abs_path('/hz/reviews-render/ajax/reviews/get/' \
+                              'ref=cm_cr_getr_d_paging_btm_next_{page}'.format(page=page))
+
+    def _url_search(self, keyword: str, page: int, min_price: int, max_price: int, merchant: str,
+                    category: SearchCategory):
+        query = ['k={}'.format(keyword)]
+        if min_price:
+            query.append('low-price={}'.format(min_price))
+        if max_price:
+            query.append('high-price={}'.format(max_price))
+        if merchant:
+            if merchant == 'amazon':
+                query.append('emi={}'.format(self.country.amazon_merchant_id))
+            else:
+                query.append('emi={}'.format(merchant))
+        if category:
+            query.append('i={}'.format(category.value_by_country(self.country)))
+        if page:
+            query.append('page={}'.format(page))
+        return self._abs_path('/s?' + '&'.join(query))
 
     def _create_header(self):
         return {**self.headers, 'cookie': '; '.join(f'{k}={v}' for k, v in self.cookie.items())}

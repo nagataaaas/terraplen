@@ -138,6 +138,7 @@ class Country(Enum):
     UnitedKingdom = "co.uk"
     UnitedStates = "com"
 
+    @property
     def lang_and_currency(self) -> Tuple[Language, Currency]:
         return {
             Country.Australia: (Language.EnglishAustralia, Currency.AustralianDollar),
@@ -160,6 +161,31 @@ class Country(Enum):
             Country.UnitedArabEmirates: (Language.EnglishUnitedArabEmirates, Currency.ArabEmiratesDirham),
             Country.UnitedKingdom: (Language.EnglishUnitedKingdom, Currency.Pounds),
             Country.UnitedStates: (Language.English, Currency.USDollar)
+        }[self]
+
+    @property
+    def amazon_merchant_id(self) -> str:
+        return {
+            Country.Australia: "ANEGB3WVEVKZB",
+            Country.Brazil: "A1ZZFT5FULY4LN",
+            Country.Canada: "A3DWYIK6Y9EEQB",
+            Country.ChinaMainland: "A1AJ19PSB66TGU",
+            Country.France: "A1X6FK5RDHNB96",
+            Country.Germany: "A3JWKAKR8XB7XF",
+            Country.India: "AT95IG9ONZD7S",
+            Country.Italy: "A11IL2PNWYJU7H",
+            Country.Japan: "AN1VRQENFRJN5",
+            Country.Mexico: "AVDBXBAVVSXLQ",
+            Country.Netherlands: "A17D2BRD4YMT0X",
+            Country.Poland: "A5JH7MGCI556L",
+            Country.SaudiArabia: "A2XPWB6MYN7ZDK",
+            Country.Singapore: "ACT6OAM3OSC9S",
+            Country.Spain: "A1AT7YVPFBWXBL",
+            Country.Sweden: "ANU9KP01APNAG",
+            Country.Turkey: "A3IUCL7SEZP27A",
+            Country.UnitedArabEmirates: "A2KKU8J8O8784X",
+            Country.UnitedKingdom: "A3P5ROKL5A1OLE",
+            Country.UnitedStates: "ATVPDKIKX0DER",
         }[self]
 
 
@@ -714,13 +740,15 @@ class SearchCategory(Enum):
     def value_by_country(self, country: Country) -> str:
         if self is SearchCategory.HomeImprovement:
             if country in (
-            Country.Sweden, Country.Singapore, Country.SaudiArabia, Country.Poland, Country.Netherlands, Country.India,
-            Country.ChinaMainland, Country.Australia):
+                    Country.Sweden, Country.Singapore, Country.SaudiArabia, Country.Poland, Country.Netherlands,
+                    Country.India,
+                    Country.ChinaMainland, Country.Australia):
                 return 'home-improvement'
         elif self is SearchCategory.SportsAndOutdoors:
             if country in (
-            Country.UnitedKingdom, Country.UnitedArabEmirates, Country.Turkey, Country.SaudiArabia, Country.Netherlands,
-            Country.Germany, Country.France):
+                    Country.UnitedKingdom, Country.UnitedArabEmirates, Country.Turkey, Country.SaudiArabia,
+                    Country.Netherlands,
+                    Country.Germany, Country.France):
                 return 'sports'
         elif self is SearchCategory.ToysAndGames:
             if country in (Country.UnitedStates, Country.ChinaMainland):
@@ -728,24 +756,44 @@ class SearchCategory(Enum):
         return str(self)
 
 
+class SearchResultProductOffers:
+    def __init__(self, asin: str, offer_name: str, currency: str, price: float):
+        self.asin = asin
+        self.offer_name = offer_name
+        self.currency = currency
+        self.price = price
 
-class SearchOptions:
-    def __init__(self, min_price: int = None, max_price: int = None, merchant: str = None, category: SearchCategory = None):
+    def __repr__(self):
+        return 'SearchResultProductOffers(asin={!r}, offer_name={!r}, ' \
+               'currency={!r}, price={!r})'.format(self.asin, self.offer_name, self.currency, self.price)
+
+
+class SearchResultProduct:
+    def __init__(self, asin: str, name: str, currency: str, min_price: float, offers: List[SearchResultProductOffers]):
+        self.asin = asin
+        self.name = name
+        self.currency = currency
+        self.min_price = min_price
+        self.offers = offers
+
+    def __repr__(self):
+        return 'SearchResultProduct(asin={!r}, name={!r}, ' \
+               'currency={!r}, min_price={!r}, offers={!r})'.format(self.asin, self.name, self.currency,
+                                                                    self.min_price, self.offers)
+
+
+class SearchResult:
+    def __init__(self, result: List[SearchResultProduct], keyword: str, page: int, min_price: int, max_price: int,
+                 merchant: str, category: SearchCategory):
+        self.result = result
+        self.keyword = keyword
+        self.page = page
         self.min_price = min_price
         self.max_price = max_price
         self.merchant = merchant
         self.category = category
 
-    def to_value(self):
-        result = []
-        if self.min_price:
-            result.append('low-price={}'.format(self.min_price))
-        if self.max_price:
-            result.append('high-price={}'.format(self.max_price))
-        if self.merchant:
-            result.append('emi={}'.format(self.merchant))
-        if self.category:
-            result.append('i={}'.format(self.category))
-
-class SearchResult:
-    pass
+    def __repr__(self):
+        return 'SearchResult(result={!r}, keyword={!r}, page={}, min_price={}, max_price={}, ' \
+               'merchant={!r}, category={!r})'.format(self.result, self.keyword, self.page, self.min_price,
+                                                      self.max_price, self.merchant, self.category)
