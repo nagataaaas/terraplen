@@ -1,4 +1,4 @@
-from terraplen.utils import find_number, remove_whitespace, thumb_size, product
+from terraplen.utils import find_number, remove_whitespace, thumb_size, product, parse_asin_from_url
 from terraplen.models import Country, Variation, Category, PrimeVideoTV, Product, PrimeVideoMovie, Book, Movie, \
     ProductVariations, Kindle
 from terraplen import Scraper
@@ -40,6 +40,21 @@ class TestUtil:
                    ([Variation(name='b', value=1), Variation(name='b', value=1)], 'b b'),
                    ([Variation(name='c', value=2), Variation(name='a', value=0)], 'c a'),
                    ([Variation(name='c', value=2), Variation(name='b', value=1)], 'c b')]
+
+    def test_parse_asin_from_url(self):
+        assert parse_asin_from_url('https://www.amazon.com/Handle-with-Care/dp/B08KZMKWQW/ref=sr_1_4?'
+                                   'dchild=1&keywords=Walking+Dead&qid=1625458858&sr=8-4') == 'B08KZMKWQW'
+        assert parse_asin_from_url(
+            'https://www.amazon.com/gp/slredirect/picassoRedirect.html/ref=pa_sp_mtf_aps_sr_pg1_1'
+            '?ie=UTF8&adId=A04795201Z6TXX88LK5BR&url=%2FWalking-Autographed-Reprint-Bernthal-Chandler'
+            '%2Fdp%2FB07VGZF192%2Fref%3Dsr_1_10_sspa%3Fdchild%3D1%26keywords%3DWalking%2BDead%26qid'
+            '%3D1625458858%26sr%3D8-10-spons%26psc%3D1&qualifier=1625458858'
+            '&id=600872970694646&widgetName=sp_mtf') == 'B07VGZF192'
+        assert parse_asin_from_url(
+            'https://www.amazon.co.jp/Star-Wars-Jedi%E2%84%A2-Visual-Dictionary/dp/0241281091/ref=sr_1_1'
+            '?__mk_ja_JP=%E3%82%AB%E3%82%BF%E3%82%AB%E3%83%8A&dchild=1&keywords=starwars'
+            '&qid=1625444593&s=books&sr=1-1') == '0241281091'
+        assert parse_asin_from_url('https://www.amazon.co.jp/this_isnt_valid') == None
 
 
 class TestCountry:
@@ -86,6 +101,8 @@ class TestScraper:
             Scraper(country, False).init()
 
     def test_get_product_type(self):
+        if not DoHeavyTest:
+            return
         assert isinstance(self.scraper.get_product('B07RPQRPR5'), ProductVariations)
         assert isinstance(self.scraper.get_product('B08GG1QSRR'), ProductVariations)
         assert isinstance(self.scraper.get_product('B09319VMGT'), ProductVariations)

@@ -1,12 +1,12 @@
 import re
-from typing import Tuple, Dict, List, Generator
+from typing import Tuple, Dict, List, Optional
 import json
 
 
 def find_number(text: str) -> float:
     try:
-        return float(re.findall(r'\d(?:[\d,.]*\d)?', text)[0].replace(',', ''))
-    except IndexError:
+        return float(re.search(r'\d(?:[\d,.]*\d)?', text)[0].replace(',', ''))
+    except TypeError:
         raise ValueError("Seems like there is no numbers in `{}`".format(text))
 
 
@@ -30,3 +30,10 @@ def product(categories: List, depth=0):
                 yield [variation] + p[0], '{} {}'.format(variation.name, p[1])
         else:
             yield [variation], variation.name
+
+
+def parse_asin_from_url(url: str) -> Optional[str]:
+    try:
+        return (re.search('/dp/([^/]+)', url) or re.search('%2Fdp%2F([^%]+)%2F', url))[1]
+    except TypeError:
+        return None

@@ -4,34 +4,54 @@ import re
 import json
 from pprint import pprint
 
-# #aod-end-of-results
-asin = 'B08GG1QSRR'  # DualSense twisting
-asin = 'B084G2VWFW'  # backpack not twisting
-asin = 'B097XB91KH'  # book single
-asin = 'B00GRKD6XU'  # book twisting kindle
-asin = '4798121967'  # book twisting
-asin = 'B07HJ52LKD'  # chokinbako not twisting
-asin = 'B09319VMGT'  # tales-of-arise twisting video
-asin = 'B07X1QB6NP'  # avengers not prime
-asin = 'B08DG5HVJ6'  # back to the future
-asin = 'B00BQPP3IM'  # fight club usa prime
-asin = 'B074ZQSYDT'  # not available prime movie
-asin = 'B076B9NB4F'  # startup prime drama
-asin = 'B00L9MXVVI'  # the goonies prime
-asin = 'B07RPQRPR5'  # chokinbako twisting
-asin = 'B07RPQRPR5'
+ss = []
 
-s = Scraper(Country.Japan, currency=Currency.CanadianDollar, language=Language.Malayalam)
-d = s.get_product(asin)
-pprint(d)
-# for img in d.images:
-#     print(img.largest_image)
-exit()
-print(s.get_offers(asin, page=1).offers)
-print(s.get_offers(asin, page=2).offers)
-print(s.get_review(asin))
-print(s.get_rating(asin))
-print(s.cookie)
-print(s.currency, s.language)
+sports = []
+home = []
+toysandgames = []
 
-#
+for c in list(Country.__iter__())[::-1]:
+    s = Scraper(c)
+    soup = s.search('why')
+    for l in soup.select('#searchDropdownBox > option'):
+        ss.append([l['value'], l.string])
+        if 'sports' in l['value']:
+            sports.append(c)
+        if 'home-improvement' in l['value']:
+            home.append(c)
+        if 'toys-and' in l['value']:
+            toysandgames.append(c)
+
+print(sports)
+print(home)
+print(toysandgames)
+
+# 'aps': ['All Departments'],
+#      'alexa-skills': ['Alexa Skill'],
+#      'amazon-devices': ['Amazon Device'],
+#      'amazon-global-store': ['Amazon Global Store'],
+#      'mobile-apps': ['App And Game'],
+#      'audible': ['Audible'],
+#      'automotive': ['Automotive'],
+#      'baby': ['Baby'],
+#      'beauty': ['Beauty'],
+#      'stripbooks': ['Book'],
+#      'popular': ['CDs And Vinyl'],
+#      'fashion': ['Fashion'],
+#      'fashion-womens': ['FashionWomen'],
+#      'fashion-mens': ['FashionMen'],
+#      'fashion-girls': ['FashionGirl'], 'fashion-boys': ['Boy'],
+#      'fashion-baby': ['FashionBaby'],
+#      'warehouse-deals': ['Amazon Warehouse'],
+#      'computers': ['Computer'],
+#      'electronics': ['Electronic'],
+#      'garden': ['Garden'],
+#      'gift-cards': ['Gift Card'],
+#      'hpc': ['Health'],
+#      'home': ['Home'],
+#      'home-improvement': ['HomeImprovement'],
+#      'digital-text': ['Kindle Store'],
+#      'kitchen': ['Kitchen And Dining'],
+#      'fashion-luggage': ['Luggage And Travel Gear'],
+#      'movies-tv': ['Movie And TV'],
+#      'mi': ['Musical Instrument'],

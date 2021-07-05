@@ -625,11 +625,116 @@ class PrimeVideoTV:
                                                                                self.territory)
 
 
+class SearchCategory(Enum):
+    AlexaSkills = 'alexa-skills'
+    AllDepartments = 'aps'
+    AmazonDevices = 'amazon-devices'
+    AmazonFresh = 'nowstore'
+    AmazonGlobalStore = 'amazon-global-store'
+    AmazonWarehouse = 'warehouse-deals'
+    Apparel = 'apparel'
+    AppsAndGames = 'mobile-apps'
+    ArtsAndcrafts = 'arts-crafts'
+    AudibleAudiobooks = 'audible'
+    AudioVisual = 'audio-visual'
+    Baby = 'baby'
+    Beauty = 'beauty'
+    Books = 'stripbooks'
+    CameraAndPhoto = 'photo'
+    CarAndMotorbike = 'automotive'
+    CarRenting = 'vehicles'
+    ClassicalMusic = 'classical'
+    Clothing = 'clothing'
+    Collectibles = 'collectibles'
+    Communications = 'communications'
+    ComputersAndAccessories = 'computers'
+    DIYAndTools = 'diy'
+    DVDAndBluray = 'dvd'
+    DigitalMusic = 'digital-music'
+    ElectronicsAndPhoto = 'electronics'
+    EnglishBook = 'english-books'
+    Fashion = 'fashion'
+    FashionBaby = 'fashion-baby'
+    FashionBabyAndKids = 'fashion-baby-kids'
+    FashionBoys = 'fashion-boys'
+    FashionGirls = 'fashion-girls'
+    FashionMen = 'fashion-mens'
+    FashionWomen = 'fashion-womens'
+    Financial = 'financial'
+    FoodDrinkAndAlcohol = 'food-beverage'
+    Furniture = 'furniture'
+    GardenAndOutdoor = 'lawngarden'
+    GardenAndOutdoors = 'outdoor'
+    GiftCards = 'gift-cards'
+    Grocery = 'grocery'
+    Handmade = 'handmade'
+    HealthAndPersonalCare = 'drugstore'
+    HealthHouseholdAndPersonalCare = 'hpc'
+    Hobby = 'hobby'
+    Home = 'home'
+    HomeAndBusinessServices = 'local-services'
+    HomeAndGarden = 'garden'
+    HomeAndKitchen = 'kitchen'
+    HomeAppliance = 'home-appliances'
+    HomeImprovement = 'hi'
+    HomeSubstore = 'home-substore'
+    IndustrialAndScientific = 'industrial'
+    Jewellery = 'jewelry'
+    KindleStore = 'digital-text'
+    LargeAppliances = 'appliances'
+    Lighting = 'lighting'
+    Luggage = 'luggage'
+    LuggageAndTravelGear = 'fashion-luggage'
+    Magazines = 'magazines'
+    Misc = 'misc'
+    MoviesAndTV = 'movies-tv'
+    MusicCDsAndVinyl = 'popular'
+    MusicPlayers = 'music-players'
+    MusicalInstrumentsAndDJEquipment = 'mi'
+    PCAndVideoGames = 'videogames'
+    Pantry = 'pantry'
+    PetSupplies = 'pets'
+    PhotoAndVideo = 'photo-video'
+    PremiumBeauty = 'luxury-beauty'
+    PrimeVideo = 'instant-video'
+    ShoesAndBags = 'shoes'
+    SmartHome = 'smart-home'
+    Software = 'software'
+    SportsAndOutdoors = 'sporting'
+    StationeryAndOfficeSupplies = 'office-products'
+    SubscribeAndSave = 'specialty-aps-sns'
+    TodaysDeals = 'todays-deals'
+    ToolsAndHomeImprovement = 'tools'
+    ToysAndGames = 'toys'
+    UnderTenDollars = 'under-ten-dollars'
+    Watches = 'watch'
+    Wine = 'wine'
+    WineBeerAndSpirits = 'alcohol'
+
+    def value_by_country(self, country: Country) -> str:
+        if self is SearchCategory.HomeImprovement:
+            if country in (
+            Country.Sweden, Country.Singapore, Country.SaudiArabia, Country.Poland, Country.Netherlands, Country.India,
+            Country.ChinaMainland, Country.Australia):
+                return 'home-improvement'
+        elif self is SearchCategory.SportsAndOutdoors:
+            if country in (
+            Country.UnitedKingdom, Country.UnitedArabEmirates, Country.Turkey, Country.SaudiArabia, Country.Netherlands,
+            Country.Germany, Country.France):
+                return 'sports'
+        elif self is SearchCategory.ToysAndGames:
+            if country in (Country.UnitedStates, Country.ChinaMainland):
+                return 'toys-and-games'
+        return str(self)
+
+
+
 class SearchOptions:
-    def __init__(self, min_price: int = None, max_price: int = None, merchant: str = None):
+    def __init__(self, min_price: int = None, max_price: int = None, merchant: str = None, category: SearchCategory = None):
         self.min_price = min_price
         self.max_price = max_price
         self.merchant = merchant
+        self.category = category
 
     def to_value(self):
         result = []
@@ -639,7 +744,8 @@ class SearchOptions:
             result.append('high-price={}'.format(self.max_price))
         if self.merchant:
             result.append('emi={}'.format(self.merchant))
-
+        if self.category:
+            result.append('i={}'.format(self.category))
 
 class SearchResult:
     pass

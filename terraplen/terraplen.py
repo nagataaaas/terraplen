@@ -4,11 +4,11 @@ from terraplen import selector
 from terraplen.wrappers import retry
 from terraplen.exception import (DetectedAsBotException, BotDetectedStatusCode,
                                  ProductNotFoundCode, ProductNotFoundException)
-from terraplen.utils import find_number, remove_whitespace, to_json, product
+from terraplen.utils import find_number, remove_whitespace, to_json, product, parse_asin_from_url
 from terraplen.models import (Offer, OfferList, Review, ReviewList, Country, UserAgents, Currency, Language,
                               ReviewSettings, ProductImage, Product, Video, MediaImage, Book, Kindle, MediaVariation,
                               Variation, ProductVariations, Category, Movie, PrimeVideoOption, PrimeVideoTVSeason,
-                              PrimeVideoMovie, PrimeVideoTV)
+                              PrimeVideoMovie, PrimeVideoTV, SearchOptions)
 
 from bs4 import BeautifulSoup
 import json
@@ -18,7 +18,6 @@ import re
 
 from warnings import warn
 
-from pprint import pprint as print
 import html
 
 
@@ -394,6 +393,55 @@ class Scraper:
 
                     review.append(Review(reviewer, reviewer_url, review_url, title, rating, helpful, body))
         return ReviewList(review, asin, self.country, setting, len(review) != setting.page_size)
+
+    @retry
+    def search(self, asin: str):
+
+        resp = self.get_with_update_cookie('https://{}/s?k={}'.format(self.domain, asin))
+        soup = BeautifulSoup(resp.text, 'lxml')
+        for item in soup.select('div.s-result-item.s-asin'):
+            asin = item['data-asin']
+            name = item.select_one('h2 > a > span').string
+
+            price, price_fraction, currency = (item.select_one(selector.Offer.Price),
+                                               item.select_one(selector.Offer.PriceFraction),
+                                               item.select_one(selector.Offer.PriceSymbol))
+            if price:
+                if price_fraction:
+                    price = float(price.text.replace(',', '') + price_fraction.text)
+                else:
+                    price = int(price.text.replace(',', ''))
+
+                currency = currency.text
+            options = []
+
+            for option in item.select('div.sg-row:nth-child(2) > div:nth-child(2) > div.sg-col-inner > div.a-section'):
+                if 'a-spacing-top-micro' not in option['class']:
+                    option_name = option.select_one('a.a-text-bold')
+                    if option_name:
+                        option_name = option_name.string
+
+                    _asin = option.select_one('a')
+                    if _asin:
+                        _asin = parse_asin_from_url(_asin['href'])
+                    if not _asin:
+                        print(option.select_one('a'))
+
+                    _price, _price_fraction, _currency = (option.select_one(selector.Offer.Price),
+                                                       option.select_one(selector.Offer.PriceFraction),
+                                                       option.select_one(selector.Offer.PriceSymbol))
+                    if _price:
+                        if _price_fraction:
+                            _price = float(_price.text.replace(',', '') + _price_fraction.text)
+                        else:
+                            _price = int(_price.text.replace(',', ''))
+                        _currency = _currency.string
+                    options.append([_asin, option_name, _price, _currency])
+
+
+            print([asin, name, currency, price, options])
+
+        return soup
 
     def _url_top_page(self) -> str:
         return 'https://{domain}'.format(domain=self.domain)
