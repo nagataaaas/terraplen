@@ -4,7 +4,7 @@ from terraplen.models import Country, Variation, Category, PrimeVideoTV, Product
 from terraplen import Scraper
 import pytest
 
-DoHeavyTest = False
+DoHeavyTest = True
 
 
 class TestUtil:
@@ -98,7 +98,7 @@ class TestScraper:
         if not DoHeavyTest:
             return
         for country in Country:
-            Scraper(country, False).init()
+            Scraper(country, run_init=False).init()
 
     def test_get_product_type(self):
         if not DoHeavyTest:

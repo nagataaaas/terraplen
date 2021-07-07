@@ -134,144 +134,140 @@ class Scraper:
     def get_product(self, asin: str):
         resp = self.get_with_update_cookie(self._url_product(asin))
         soup = BeautifulSoup(resp.text, 'lxml')
-        image = soup.select_one('#imageBlockVariations_feature_div > script')
+        image = soup.select_one(selector.Product.ImageJS)
         if image:
-            image = re.search(r"var obj = jQuery\.parseJSON\('([^']+)'\);", image.string).groups(1)[0]
-            if soup.select('#twisterContainer'):  # has options
-                twister = soup.select_one('#twisterJsInitializer_feature_div > script')
-                twister = re.search(r"var dataToReturn = ([^;]+)", twister.string).groups(1)[0]
-                twister = re.sub(r'"updateDivLists"\s*:\s*{([^}[]+\[[^]]*\],?\s*)+},', '',
-                                 twister, 1)  # this is much faster
+            image = re.search(selector.Product.ImageJSRe, image.string).groups(1)[0]
+            if soup.select(selector.Product.TwisterContainerId):  # has options
+                twister = soup.select_one(selector.Product.TwisterJSSelector)
+                twister = re.search(selector.Product.TwisterJSRe, twister.string).groups(1)[0]
+                twister = re.sub(selector.Product.TwisterJSRemoveRe, '', twister, 1)  # this is much faster
                 image, twister = to_json(image), to_json(twister)
 
                 categories: List[Category] = []
-                dimensions_text = image['visualDimensions']
-                title = html.unescape(image['title'])
+                dimensions_text = image[selector.Product.VisualDimensions]
+                title = html.unescape(selector.Product.Title)
                 for index, dimension in enumerate(dimensions_text):
                     current_variation = []
-                    category_display_name = twister['dimensionsDisplay'][index]
+                    category_display_name = twister[selector.Product.DimensionDisplay][index]
                     category = Category(dimension, category_display_name, [])
 
-                    for value, name in enumerate(twister['variationValues'][dimension]):
+                    for value, name in enumerate(twister[selector.Product.VariationValues][dimension]):
                         variation = Variation(name, value)
                         current_variation.append(variation)
                     category.variations = current_variation
 
                     categories.append(category)
-                videos = [Video.from_json(data) for data in image['videos']]
-                parent_asin = image['parentAsin']
+                videos = [Video.from_json(data) for data in image[selector.Product.Videos]]
+                parent_asin = image[selector.Product.ParentAsin]
                 landing = None
                 products = []
                 for variations, text in product(categories):
-                    images = [ProductImage.from_json(data) for data in image['colorImages'][text]]
-                    hero_image = image['heroImages'][text] and ProductImage.from_json(image['heroImages'][text])
-                    asin = image['colorToAsin'][text]['asin']
+                    images = [ProductImage.from_json(data) for data in image[selector.Product.ColorImages][text]]
+                    hero_image = image[selector.Product.HeroImages][text] and \
+                                 ProductImage.from_json(image[selector.Product.HeroImages][text])
+                    asin = image[selector.Product.ColorToAsin][text][selector.Product.Asin]
 
                     current_product = Product(asin, '', variations, images, videos, hero_image)
                     products.append(current_product)
 
-                    if text == image['landingAsinColor']:
+                    if text == image[selector.Product.LandingAsinColor]:
                         landing = current_product
 
                 return ProductVariations(products, landing, parent_asin, title, categories)
 
-
-            elif soup.select('#tmmSwatches'):  # maybe book ...?
-                twister = soup.select_one('#booksImageBlock_feature_div > script:nth-child(2)')
+            elif soup.select(selector.Product.BookSwitches):  # maybe book ...?
+                twister = soup.select_one(selector.Product.BookTwister)
                 if twister:  # book? complete
-                    twister = re.findall(r'''^["']imageGalleryData["'].+$''', twister.string, re.MULTILINE)[0]
+                    twister = re.findall(selector.Product.BookTwisterContentRe, twister.string, re.MULTILINE)[0]
                     twister = '{' + twister + '}'
                     image, twister = to_json(image), to_json(twister)
 
                     variations, variation = self._get_media_variations(soup, asin)
 
-                    title = html.unescape(image['title'])
-                    images = [MediaImage.from_json(data) for data in twister['imageGalleryData']]
-                    videos = [Video.from_json(data) for data in image['videos']]
+                    title = html.unescape(image[selector.Product.Title])
+                    images = [MediaImage.from_json(data) for data in twister[selector.Product.ImageGalleryData]]
+                    videos = [Video.from_json(data) for data in image[selector.Product.Videos]]
                     return Book(asin=asin, title=title, images=images, videos=videos, variations=variations,
                                 current_variation=variation)
                 else:  # movie? complete
-                    twister = re.search(r"var data = ({.+});",
-                                        soup.select_one('#imageBlock_feature_div > script:nth-child(3)').string,
-                                        re.DOTALL).groups(1)[0]
+                    twister = soup.select_one(selector.Product.MovieTwister)
+                    twister = re.search(selector.Product.MovieTwisterRe,twister.string,re.DOTALL).groups(1)[0]
                     twister = '\n'.join(
-                        re.findall(r'''^["'](?:colorImages|colorToAsin|heroImage|heroVideo)["'].+$''', twister,
-                                   re.MULTILINE))
+                        re.findall(selector.Product.MovieTwisterContentRe, twister, re.MULTILINE))
                     twister = '{' + twister + '}'
                     image, twister = to_json(image), to_json(twister)
 
                     variations, variation = self._get_media_variations(soup, asin)
 
-                    title = html.unescape(image['title'])
-                    images = [ProductImage.from_json(data) for data in twister['colorImages']['initial']]
-                    videos = [Video.from_json(data) for data in image['videos']]
+                    title = html.unescape(image[selector.Product.Title])
+                    images = [ProductImage.from_json(data) for data in twister[selector.Product.ColorImages][selector.Product.Initial]]
+                    videos = [Video.from_json(data) for data in image[selector.Product.Videos]]
                     return Movie(asin=asin, title=title, images=images, videos=videos, variations=variations,
                                  current_variation=variation)
 
             else:  # single product, complete
-                twister = re.search(r"var data = ({.+});",
-                                    soup.select_one('#imageBlock_feature_div > script:nth-child(3)').string,
-                                    re.DOTALL).groups(1)[0]
-                twister = '\n'.join(
-                    re.findall(r'''^["'](?:colorImages|colorToAsin|heroImage|heroVideo)["'].+$''', twister,
-                               re.MULTILINE))
+                twister = soup.select_one(selector.Product.ProductTwister)
+                twister = re.search(selector.Product.ProductTwisterRe, twister.string, re.DOTALL).groups(1)[0]
+                twister = '\n'.join(re.findall(selector.Product.ProductTwisterContentRe, twister,re.MULTILINE))
                 twister = '{' + twister + '}'
                 image, twister = to_json(image), to_json(twister)
 
-                title = html.unescape(image['title'])
-                images = [ProductImage.from_json(data) for data in twister['colorImages']['initial']]
-                hero_images = [ProductImage.from_json(data) for data in twister['heroImage']['initial']]
-                videos = [Video.from_json(data) for data in image['videos']]
-                hero_videos = [Video.from_json(data) for data in image.get('heroVideo', [])]
+                title = html.unescape(image[selector.Product.Title])
+                images = [ProductImage.from_json(data) for data in twister[selector.Product.ColorImages][selector.Product.Initial]]
+                hero_images = [ProductImage.from_json(data) for data in twister[selector.Product.HeroImage][selector.Product.Initial]]
+                videos = [Video.from_json(data) for data in image[selector.Product.Videos]]
+                hero_videos = [Video.from_json(data) for data in image.get(selector.Product.HeroVideo, [])]
 
                 return Product(asin=asin, title=title, variation=[], images=images, videos=videos,
                                hero_images=hero_images, hero_videos=hero_videos)
-        elif soup.select('#ebooksImgBlkFront'):  # kindle book? complete
+        elif soup.select(selector.Product.KindleSelector):  # kindle book? complete
             variations, variation = self._get_media_variations(soup, asin)
 
-            img = soup.select_one('#ebooksImgBlkFront')
-            sorted_img = sorted(json.loads(img['data-a-dynamic-image']).items(), key=lambda x: x[1])
+            img = soup.select_one(selector.Product.KindleSelector)
+            sorted_img = sorted(json.loads(img[selector.Product.KindleDynamicImage]).items(), key=lambda x: x[1])
             thumb, (img_url, (width, height)) = sorted_img[0][0], sorted_img[-1]
             img = MediaImage(img_url, thumb, width, height)
-            title = soup.select_one('#productTitle').text.strip()
-            if soup.select_one('#productSubtitle'):
-                title = '{} {}'.format(title, soup.select_one('#productSubtitle').text.strip())
+            title = soup.select_one(selector.Product.KindleTitle).text.strip()
+            subtitle = soup.select_one(selector.Product.KindleSubTitle)
+            if subtitle:
+                title = '{} {}'.format(title, subtitle.text.strip())
             return Kindle(asin, title, img, variations, variation)
-        elif soup.select('#a-page > div.av-page-desktop.avu-retail-page > script:nth-child(9)'):  # prime video
-            data = soup.select_one('#a-page > div.av-page-desktop.avu-retail-page > script:nth-child(9)')
+        elif soup.select(selector.Product.PrimeVideoData):  # prime video
+            data = soup.select_one(selector.Product.PrimeVideoData)
             data = json.loads(data.string)
 
-            entity_type = list(data['props']['state']['detail']['headerDetail'].values())[0]['entityType']
+            detail = data[selector.Product.PrimeProps][selector.Product.PrimeState][selector.Product.PrimeDetail]
+            first_header_detail = list(detail[selector.Product.PrimeHeaderDetail].values())[0]
+
+            entity_type = first_header_detail[selector.Product.PrimeEntityType]
             if entity_type in ('Movie', 'TV Show'):
-                base_asin = data['initArgs']['titleID']
-                realm = data['initArgs']['realm']
-                locale, territory = data['initArgs']['context']['locale'], data['initArgs']['context'][
-                    'recordTerritory']
-                svod = list(data['props']['state']['action']['atf'].values())[0]['acquisitionActions'].get(
-                    'svodWinners')
-                title = list(data['props']['state']['detail']['headerDetail'].values())[0].get('parentTitle') or \
-                        list(data['props']['state']['detail']['headerDetail'].values())[0].get('title')
-                more_way = list(data['props']['state']['action']['atf'].values())[0]['acquisitionActions'].get(
-                    'moreWaysToWatch')
+                base_asin = data[selector.Product.PrimeInitArgs][selector.Product.PrimeTitleId]
+                realm = data[selector.Product.PrimeInitArgs][selector.Product.PrimeRealm]
+                context = data[selector.Product.PrimeInitArgs][selector.Product.PrimeContext]
+                locale, territory = context[selector.Product.PrimeLocale], context[selector.Product.PrimeRecordTerritory]
+                acquisition = list(data[selector.Product.PrimeProps][selector.Product.PrimeState][selector.Product.PrimeAction][selector.Product.PrimeAtf].values())[0][selector.Product.PrimeAcquisition]
+                svod = acquisition.get(selector.Product.PrimeSVOD)
+                title = first_header_detail.get(selector.Product.PrimeParentTitle) or first_header_detail.get(selector.Product.PrimeTitle)
+                more_way = acquisition.get(selector.Product.PrimeMoreWaysToWatch)
 
                 option_values = []
 
                 if svod:
                     option_values.append(PrimeVideoOption(base_asin, True, '', '', ''))
                 if more_way:
-                    for op in more_way['children']:
-                        for child in op['children']:
-                            if child.get('sType') != 'PRIME':
-                                asin = child['asin']
-                                purchase_type, *_, price = child['label'].split(' ')
-                                video_quality = child['purchaseData']['videoQuality']
+                    for op in more_way[selector.Product.PrimeMoreWayChildren]:
+                        for child in op[selector.Product.PrimeMoreWayChildren]:
+                            if child.get(selector.Product.PrimeOptionType) != selector.Product.PrimeTypeName:
+                                asin = child[selector.Product.PrimeAsin]
+                                purchase_type, *_, price = child[selector.Product.PrimeDescTest].split(' ')
+                                video_quality = child[selector.Product.PrimePurchaseData][selector.Product.PrimeVideoQuality]
                                 option_values.append(PrimeVideoOption(asin, True, purchase_type, price, video_quality))
 
             if entity_type == 'Movie':  # movie
                 return PrimeVideoMovie(asin, title, option_values, realm, locale, territory)
             elif entity_type == 'TV Show':  # tv show
                 seasons: List[PrimeVideoTVSeason] = [PrimeVideoTVSeason.from_json(k, v) for k, v in
-                                                     data['props']['state']['detail']['detail'].items()]
+                                                     detail[selector.Product.PrimeDetail].items()]
                 return PrimeVideoTV(asin, title, option_values, seasons, realm, locale, territory)
             else:
                 raise TypeError("unknown entity_type `{}`. Maybe an unavailable product.".format(entity_type))
@@ -523,17 +519,17 @@ class Scraper:
 
         variations: List[MediaVariation] = []
         variation = None
-        types, values = (soup.select('li.swatchElement > span > span > span > a > span:first-child'),
-                         soup.select('li.swatchElement > span > span > span > a > span > span.a-size-base'))
+        types, values = (soup.select(selector.Variation.Types),
+                         soup.select(selector.Variation.Values))
         if not types:
             warn("looks like terraplen couldn't get proper html")
         for type_, value in zip(types, values):
-            if 'a-color-price' in value['class']:
+            if selector.Variation.ValidClass in value['class']:
                 _asin = asin
             else:
                 _asin = type_.parent['href'].rsplit('/')[-2]
             val = MediaVariation(type_.text.strip(), value.text.strip(), _asin)
-            if 'a-color-price' in value['class']:
+            if selector.Variation.ValidClass in value['class']:
                 variation = val
             variations.append(val)
         return variations, variation
