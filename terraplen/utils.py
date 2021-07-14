@@ -24,12 +24,13 @@ def to_json(text: str) -> Dict:
 
 
 def product(categories: List, depth=0):
-    for variation in categories[depth].variations:
+    current = categories[depth]
+    for variation in current.variations:
         if len(categories) > depth + 1:
             for p in product(categories, depth + 1):
-                yield [variation] + p[0], '{} {}'.format(variation.name, p[1])
+                yield [[variation, current.is_visual]] + [p]
         else:
-            yield [variation], variation.name
+            yield [variation, current.is_visual]
 
 
 def parse_asin_from_url(url: str) -> Optional[str]:

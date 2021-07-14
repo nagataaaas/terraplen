@@ -144,28 +144,27 @@ class Scraper:
                 image, twister = to_json(image), to_json(twister)
 
                 categories: List[Category] = []
-                dimensions_text = image[selector.Product.VisualDimensions]
-                title = html.unescape(selector.Product.Title)
-                for index, dimension in enumerate(dimensions_text):
+                title = html.unescape(image[selector.Product.Title])
+                for dimension_text, dimension_display in twister[selector.Product.VariationLabels].items():
                     current_variation = []
-                    category_display_name = twister[selector.Product.DimensionDisplay][index]
-                    category = Category(dimension, category_display_name, [])
-
-                    for value, name in enumerate(twister[selector.Product.VariationValues][dimension]):
+                    category = Category(dimension_text, dimension_display, [], dimension_text in image[selector.Product.VisualDimensions])
+                    for value, name in enumerate(twister[selector.Product.VariationValues][dimension_text]):
                         variation = Variation(name, value)
                         current_variation.append(variation)
                     category.variations = current_variation
 
                     categories.append(category)
+                categories.sort(key=lambda c: twister[selector.Product.Dimension].index(c.name))
                 videos = [Video.from_json(data) for data in image[selector.Product.Videos]]
                 parent_asin = image[selector.Product.ParentAsin]
                 landing = None
                 products = []
-                for variations, text in product(categories):
+                for variations in product(categories):
+                    text, dimension = ' '.join(v[0].name for v in variations if v[1]), '_'.join(str(v[0].value) for v in variations)
                     images = [ProductImage.from_json(data) for data in image[selector.Product.ColorImages][text]]
                     hero_image = image[selector.Product.HeroImages][text] and \
                                  ProductImage.from_json(image[selector.Product.HeroImages][text])
-                    asin = image[selector.Product.ColorToAsin][text][selector.Product.Asin]
+                    asin = twister[selector.Product.DimensionToAsin][dimension]
 
                     current_product = Product(asin, '', variations, images, videos, hero_image)
                     products.append(current_product)
@@ -173,7 +172,7 @@ class Scraper:
                     if text == image[selector.Product.LandingAsinColor]:
                         landing = current_product
 
-                return ProductVariations(products, landing, parent_asin, title, categories)
+                return ProductVariations(title, products, landing, parent_asin, categories)
 
             elif soup.select(selector.Product.BookSwitches):  # maybe book ...?
                 twister = soup.select_one(selector.Product.BookTwister)

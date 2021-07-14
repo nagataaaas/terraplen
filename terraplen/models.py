@@ -419,15 +419,17 @@ class Variation:
 
 
 class Category:
-    def __init__(self, name: str, display_name: str, variations: List[Variation]):
+    def __init__(self, name: str, display_name: str, variations: List[Variation], is_visual: bool):
         self.name = name
         self.display_name = display_name
         self.variations = variations
+        self.is_visual = is_visual
 
     def __repr__(self):
-        return 'Category(name={!r}, display_name={!r}, variations={!r})'.format(self.name,
-                                                                                self.display_name,
-                                                                                self.variations)
+        return 'Category(name={!r}, display_name={!r}, variations={!r}), is_visual={}'.format(self.name,
+                                                                                              self.display_name,
+                                                                                              self.variations,
+                                                                                              self.is_visual)
 
 
 class ProductImage:
@@ -557,19 +559,19 @@ class Kindle:
 
 
 class ProductVariations:
-    def __init__(self, products: List[Product], landing: Product, parent_asin: str, title: str,
+    def __init__(self, title: str, products: List[Product], landing: Product, parent_asin: str,
                  categories: List[Category]):
+        self.title = title
         self.products = products
         self.landing = landing
         self.parent_asin = parent_asin
-        self.title = title
         self.categories = categories
 
     def __repr__(self):
-        return 'ProductVariations(products={!r}, landing={!r}, ' \
-               'parent_asin={!r}, title={!r}, categories={!r})'.format(self.products, self.landing,
-                                                                       self.parent_asin, self.title,
-                                                                       self.categories)
+        return 'ProductVariations(title={!r}, products={!r}, landing={!r}, ' \
+               'parent_asin={!r}, categories={!r})'.format(self.title, self.products, self.landing,
+                                                           self.parent_asin,
+                                                           self.categories)
 
 
 class PrimeVideoOption:

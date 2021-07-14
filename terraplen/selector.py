@@ -47,7 +47,10 @@ class Product:
     TwisterJSRe = r"var dataToReturn = ([^;]+)"
     TwisterJSRemoveRe = r'"updateDivLists"\s*:\s*{([^}[]+\[[^]]*\],?\s*)+},'
 
+    VariationLabels = 'variationDisplayLabels'
     VisualDimensions = 'visualDimensions'
+    Dimension = 'dimensions'
+    DimensionToAsin = 'dimensionToAsinMap'
     Title = 'title'
     DimensionDisplay = 'dimensionsDisplay'
     VariationValues = 'variationValues'
