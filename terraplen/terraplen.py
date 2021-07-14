@@ -500,7 +500,7 @@ class Scraper:
                         option_name = option_name.string
 
                     _asin = option.select_one('a')
-                    if 's-sponsored-label-text' in _asin['class']:
+                    if not _asin or 's-sponsored-label-text' in _asin['class']:
                         continue
                     if _asin:
                         _asin = parse_asin_from_url(_asin['href'])
@@ -517,7 +517,8 @@ class Scraper:
                         _currency = _currency.string
                     if any([_asin, option_name, _price, _currency]):
                         options.append(SearchResultProductOffers(_asin, option_name, _currency, _price))
-            price = min([price] + [p.price for p in options])
+            if price:
+                price = min([price] + [p.price or float('inf') for p in options])
             result.append(SearchResultProduct(asin, name, currency, price, options))
 
         return SearchResult(result, keyword, page or 1, min_price, max_price, merchant, category)
