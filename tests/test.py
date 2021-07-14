@@ -21,25 +21,23 @@ class TestUtil:
         assert remove_whitespace('      lonely...       ') == 'lonely...'
 
     def test_thumb_size(self):
-        assert thumb_size(
-            'https://m.media-amazon.com/images/I/81jPsqOAU6S.SX38_SY50_CR,0,0,38,50_BG85,85,85_BR-120_PKdp-play-icon-overlay__.png') == (
-                   38, 50)
-        assert thumb_size(
-            'https://m.media-amazon.com/images/I/81jPsqOAU6S.SX380_SY500_CR,0,0,38,50_BG85,85,85_BR-120_PKdp-play-icon-overlay__.png') == (
-                   380, 500)
+        assert thumb_size('https://m.media-amazon.com/images/I/81jPsqOAU6S.SX38_SY50_CR,0,0,38,50_BG85,'
+                          '85,85_BR-120_PKdp-play-icon-overlay__.png') == (38, 50)
+        assert thumb_size('https://m.media-amazon.com/images/I/81jPsqOAU6S.SX380_SY500_CR,0,0,38,50_BG85,'
+                          '85,85_BR-120_PKdp-play-icon-overlay__.png') == (380, 500)
 
     def test_product(self):
-        assert list(product([Category('', '', [Variation('a', 0), Variation('b', 1), Variation('c', 2)])])) \
-               == [([Variation(name='a', value=0)], 'a'), ([Variation(name='b', value=1)], 'b'),
-                   ([Variation(name='c', value=2)], 'c')]
-        assert list(product([Category('', '', [Variation('a', 0), Variation('b', 1), Variation('c', 2)]),
-                             Category('', '', [Variation('a', 0), Variation('b', 1)])])) \
-               == [([Variation(name='a', value=0), Variation(name='a', value=0)], 'a a'),
-                   ([Variation(name='a', value=0), Variation(name='b', value=1)], 'a b'),
-                   ([Variation(name='b', value=1), Variation(name='a', value=0)], 'b a'),
-                   ([Variation(name='b', value=1), Variation(name='b', value=1)], 'b b'),
-                   ([Variation(name='c', value=2), Variation(name='a', value=0)], 'c a'),
-                   ([Variation(name='c', value=2), Variation(name='b', value=1)], 'c b')]
+        assert list(product([Category('', '', [Variation('a', 0), Variation('b', 1), Variation('c', 2)], True)])) \
+               == [[[Variation(name='a', value=0), True]], [[Variation(name='b', value=1), True]],
+                   [[Variation(name='c', value=2), True]]]
+        assert list(product([Category('', '', [Variation('a', 0), Variation('b', 1), Variation('c', 2)], True),
+                             Category('', '', [Variation('a', 0), Variation('b', 1)], True)])) \
+               == [[[Variation(name='a', value=0), True], [Variation(name='a', value=0), True]],
+                   [[Variation(name='a', value=0), True], [Variation(name='b', value=1), True]],
+                   [[Variation(name='b', value=1), True], [Variation(name='a', value=0), True]],
+                   [[Variation(name='b', value=1), True], [Variation(name='b', value=1), True]],
+                   [[Variation(name='c', value=2), True], [Variation(name='a', value=0), True]],
+                   [[Variation(name='c', value=2), True], [Variation(name='b', value=1), True]]]
 
     def test_parse_asin_from_url(self):
         assert parse_asin_from_url('https://www.amazon.com/Handle-with-Care/dp/B08KZMKWQW/ref=sr_1_4?'

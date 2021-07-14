@@ -10,11 +10,12 @@ from terraplen.models import (Offer, OfferList, Review, ReviewList, Country, Use
                               Variation, ProductVariations, Category, Movie, PrimeVideoOption, PrimeVideoTVSeason,
                               PrimeVideoMovie, PrimeVideoTV, SearchCategory, SearchResultProduct,
                               SearchResultProductOffers, SearchResult)
+from terraplen import numbers
 
 from bs4 import BeautifulSoup
 import json
 from urllib.parse import quote, urljoin
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, Optional, List, Tuple, Union
 import re
 
 from warnings import warn
@@ -104,6 +105,10 @@ class Scraper:
         return resp
 
     def set_country(self, country: Country):
+        """
+        Set current country to given one
+        :param country: Country | str
+        """
         if isinstance(country, Country):
             self.country = country
         elif isinstance(country, str):
@@ -112,12 +117,20 @@ class Scraper:
         self.domain = 'www.amazon.{}'.format(self.country.value)
 
     def set_currency(self, currency: Currency):
+        """
+        Set current currency to given one
+        :param currency: Currency | str
+        """
         if isinstance(currency, str):
             currency = Currency(currency)  # This will raise `ValueError` if `currency` is invalid.
         self.currency = currency
         self.cookie['i18n-prefs'] = currency.value
 
     def set_language(self, language: Language):
+        """
+        Set current language to given one
+        :param language: Language | str
+        """
         if isinstance(language, str):
             language = Language(language)  # This will raise `ValueError` if `language` is invalid.
         self.language = language
@@ -131,7 +144,14 @@ class Scraper:
             return 'lc-acb{}'.format(self.country.value.split('.')[-1])
 
     @retry
-    def get_product(self, asin: str):
+    def get_product(self, asin: str) -> Union[ProductVariations, Book, Movie, Product,
+                                              Kindle, PrimeVideoMovie, PrimeVideoTV]:
+        """
+        get product info with given asin
+        :param asin: Asin of product. Normal product, Books, Kindle books, Movie or Prime Video are acceptable
+        :return: Union[ProductVariations, Book, Movie, Product, Kindle, PrimeVideoMovie, PrimeVideoTV].
+         Check type of return value.
+        """
         resp = self.get_with_update_cookie(self._url_product(asin))
         soup = BeautifulSoup(resp.text, 'lxml')
         image = soup.select_one(selector.Product.ImageJS)
@@ -147,7 +167,8 @@ class Scraper:
                 title = html.unescape(image[selector.Product.Title])
                 for dimension_text, dimension_display in twister[selector.Product.VariationLabels].items():
                     current_variation = []
-                    category = Category(dimension_text, dimension_display, [], dimension_text in image[selector.Product.VisualDimensions])
+                    category = Category(dimension_text, dimension_display, [],
+                                        dimension_text in image[selector.Product.VisualDimensions])
                     for value, name in enumerate(twister[selector.Product.VariationValues][dimension_text]):
                         variation = Variation(name, value)
                         current_variation.append(variation)
@@ -160,9 +181,13 @@ class Scraper:
                 landing = None
                 products = []
                 for variations in product(categories):
-                    text, dimension = ' '.join(v[0].name for v in variations if v[1]), '_'.join(str(v[0].value) for v in variations)
+                    text, dimension = ' '.join(v[0].name for v in variations if v[1]), '_'.join(
+                        str(v[0].value) for v in variations)
                     text, dimension = text.replace('/', r'\/'), dimension.replace('/', r'\/')
+                    if dimension not in twister[selector.Product.DimensionToAsin]:  # unavailable combination
+                        continue
                     images = [ProductImage.from_json(data) for data in image[selector.Product.ColorImages][text]]
+
                     hero_image = image[selector.Product.HeroImages][text] and \
                                  ProductImage.from_json(image[selector.Product.HeroImages][text])
                     asin = twister[selector.Product.DimensionToAsin][dimension]
@@ -191,7 +216,7 @@ class Scraper:
                                 current_variation=variation)
                 else:  # movie? complete
                     twister = soup.select_one(selector.Product.MovieTwister)
-                    twister = re.search(selector.Product.MovieTwisterRe,twister.string,re.DOTALL).groups(1)[0]
+                    twister = re.search(selector.Product.MovieTwisterRe, twister.string, re.DOTALL).groups(1)[0]
                     twister = '\n'.join(
                         re.findall(selector.Product.MovieTwisterContentRe, twister, re.MULTILINE))
                     twister = '{' + twister + '}'
@@ -200,7 +225,8 @@ class Scraper:
                     variations, variation = self._get_media_variations(soup, asin)
 
                     title = html.unescape(image[selector.Product.Title])
-                    images = [ProductImage.from_json(data) for data in twister[selector.Product.ColorImages][selector.Product.Initial]]
+                    images = [ProductImage.from_json(data) for data in
+                              twister[selector.Product.ColorImages][selector.Product.Initial]]
                     videos = [Video.from_json(data) for data in image[selector.Product.Videos]]
                     return Movie(asin=asin, title=title, images=images, videos=videos, variations=variations,
                                  current_variation=variation)
@@ -208,13 +234,15 @@ class Scraper:
             else:  # single product, complete
                 twister = soup.select_one(selector.Product.ProductTwister)
                 twister = re.search(selector.Product.ProductTwisterRe, twister.string, re.DOTALL).groups(1)[0]
-                twister = '\n'.join(re.findall(selector.Product.ProductTwisterContentRe, twister,re.MULTILINE))
+                twister = '\n'.join(re.findall(selector.Product.ProductTwisterContentRe, twister, re.MULTILINE))
                 twister = '{' + twister + '}'
                 image, twister = to_json(image), to_json(twister)
 
                 title = html.unescape(image[selector.Product.Title])
-                images = [ProductImage.from_json(data) for data in twister[selector.Product.ColorImages][selector.Product.Initial]]
-                hero_images = [ProductImage.from_json(data) for data in twister[selector.Product.HeroImage][selector.Product.Initial]]
+                images = [ProductImage.from_json(data) for data in
+                          twister[selector.Product.ColorImages][selector.Product.Initial]]
+                hero_images = [ProductImage.from_json(data) for data in
+                               twister[selector.Product.HeroImage][selector.Product.Initial]]
                 videos = [Video.from_json(data) for data in image[selector.Product.Videos]]
                 hero_videos = [Video.from_json(data) for data in image.get(selector.Product.HeroVideo, [])]
 
@@ -244,10 +272,14 @@ class Scraper:
                 base_asin = data[selector.Product.PrimeInitArgs][selector.Product.PrimeTitleId]
                 realm = data[selector.Product.PrimeInitArgs][selector.Product.PrimeRealm]
                 context = data[selector.Product.PrimeInitArgs][selector.Product.PrimeContext]
-                locale, territory = context[selector.Product.PrimeLocale], context[selector.Product.PrimeRecordTerritory]
-                acquisition = list(data[selector.Product.PrimeProps][selector.Product.PrimeState][selector.Product.PrimeAction][selector.Product.PrimeAtf].values())[0][selector.Product.PrimeAcquisition]
+                locale, territory = context[selector.Product.PrimeLocale], context[
+                    selector.Product.PrimeRecordTerritory]
+                acquisition = list(
+                    data[selector.Product.PrimeProps][selector.Product.PrimeState][selector.Product.PrimeAction][
+                        selector.Product.PrimeAtf].values())[0][selector.Product.PrimeAcquisition]
                 svod = acquisition.get(selector.Product.PrimeSVOD)
-                title = first_header_detail.get(selector.Product.PrimeParentTitle) or first_header_detail.get(selector.Product.PrimeTitle)
+                title = first_header_detail.get(selector.Product.PrimeParentTitle) or first_header_detail.get(
+                    selector.Product.PrimeTitle)
                 more_way = acquisition.get(selector.Product.PrimeMoreWaysToWatch)
 
                 option_values = []
@@ -260,7 +292,8 @@ class Scraper:
                             if child.get(selector.Product.PrimeOptionType) != selector.Product.PrimeTypeName:
                                 asin = child[selector.Product.PrimeAsin]
                                 purchase_type, *_, price = child[selector.Product.PrimeDescTest].split(' ')
-                                video_quality = child[selector.Product.PrimePurchaseData][selector.Product.PrimeVideoQuality]
+                                video_quality = child[selector.Product.PrimePurchaseData][
+                                    selector.Product.PrimeVideoQuality]
                                 option_values.append(PrimeVideoOption(asin, True, purchase_type, price, video_quality))
 
             if entity_type == 'Movie':  # movie
@@ -276,6 +309,11 @@ class Scraper:
 
     @retry
     def get_rating(self, asin: str) -> Dict[int, int]:
+        """
+        get rating with given asin
+        :param asin: Asin of product. Normal product, Books, Kindle books, Movie or Prime Video are acceptable
+        :return: Dict[int, int]. like {5: 10, 4: 30, 3: 20, 2: 20, 1: 10}. Keys are the evaluation value. Values are the percentage of
+        """
         resp = self.get_with_update_cookie(self._url_rating(asin))
         if resp.status_code != 200:
             raise ValueError("status code `{}` seems like invalid for `get_rating`".format(resp.status_code))
@@ -286,6 +324,23 @@ class Scraper:
     @retry
     def get_offers(self, asin: str, prime_eligible=False, free_shipping=False, new=False, used_like_new=False,
                    used_very_good=False, used_good=False, used_acceptable=False, merchant=None, page=1) -> OfferList:
+        """
+        get offers with given asin.
+        if `prime_eligible` and `free_shipping` are False, no filters for shipment.
+        if `new`, `used_line_new`, `used_very_good`, `used_good` and `used_acceptable` are False, no filters for product condition.
+        if `merchant` is None, no filters for merchant.
+        :param asin: Asin of product. Normal product, Books, Kindle books, Movie or Prime Video are acceptable
+        :param prime_eligible: Whether filter prime shipping.
+        :param free_shipping: Whether filter free shipping
+        :param new: Whether filter new products.
+        :param used_like_new: Whether filter used like new.
+        :param used_very_good: Whether filter used very good.
+        :param used_good: Whether filter used good.
+        :param used_acceptable: Whether filter used acceptable.
+        :param merchant: merchantID. or, 'amazon' to amazon's Merchant ID in current region.
+        :param page: page of offers
+        :return: OfferList
+        """
         resp = self.get_with_update_cookie(
             self._url_offers(asin, prime_eligible=prime_eligible, free_shipping=free_shipping, new=new,
                              used_like_new=used_like_new, used_very_good=used_very_good, used_good=used_good,
@@ -294,10 +349,14 @@ class Scraper:
             raise ValueError("status code `{}` seems like invalid for `get_offers`".format(resp.status_code))
         soup = BeautifulSoup(resp.text, 'lxml')
         product_name = soup.select_one(selector.Offer.ProductName).text.strip()
-        offer_count = (bool(soup.select_one(selector.Offer.Pinned)) +
-                       int(find_number(soup.select_one(selector.Offer.Count).text + '0')))
+        try:
+            number = int(find_number(soup.select_one(selector.Offer.Count).text))
+        except ValueError:
+            number = 0
+        offer_count = bool(soup.select_one(selector.Offer.Pinned)) + number
         offers = []
-        for offer in soup.select(selector.Offer.PinnedOffer) + soup.select(selector.Offer.Offers):
+        other_offers = soup.select(selector.Offer.Offers)
+        for offer in soup.select(selector.Offer.PinnedOffer) + other_offers:
             (price, price_fraction, currency,
              rating, heading, ships_from, sold_by) = (offer.select_one(selector.Offer.Price),
                                                       offer.select_one(selector.Offer.PriceFraction),
@@ -332,13 +391,21 @@ class Scraper:
             offers.append(Offer(price=price, currency=currency, rating=rating,
                                 condition=heading, ships_from=ships_from, sold_by=sold_by, sold_by_url=sold_by_url))
         return OfferList(product_name, offer_count, offers,
-                         settings={"prime_eligible": prime_eligible, "free_shipping": free_shipping, "new": new,
+                         {"prime_eligible": prime_eligible, "free_shipping": free_shipping, "new": new,
                                    "used_like_new": used_like_new, "used_very_good": used_very_good,
                                    "used_good": used_good,
-                                   "used_acceptable": used_acceptable, "merchant": merchant, "page": page})
+                                   "used_acceptable": used_acceptable, "merchant": merchant, "page": page},
+                         len(other_offers) != numbers.DEFAULT_OFFERS_PER_PAGE)
 
     @retry
     def get_review(self, asin: str, page=1, setting: ReviewSettings = ReviewSettings()) -> ReviewList:
+        """
+        get reviews with given asin
+        :param asin: Asin of product. Normal product, Books, Kindle books, Movie or Prime Video are acceptable
+        :param page: page number
+        :param setting: ReviewSettings.
+        :return: ReviewList
+        """
 
         resp = self.post_with_update_cookie(self._url_reviews(page), data=setting.to_dict(asin))
         review = []
@@ -393,7 +460,7 @@ class Scraper:
 
     @retry
     def search(self, keyword: str, page: int = None, min_price: int = None, max_price: int = None, merchant: str = None,
-               category: SearchCategory = None):
+               category: SearchCategory = None) -> SearchResult:
         """
         :param keyword: Keyword to search
         :param page: page number
@@ -401,7 +468,7 @@ class Scraper:
         :param max_price: maximum price to show
         :param merchant: merchantID. or, "amazon" to Amazon's Merchant ID in Current Region.
         :param category: Category to search
-        :return:
+        :return: SearchResult
         """
 
         resp = self.get_with_update_cookie(self._url_search(keyword, page, min_price, max_price, merchant, category))
@@ -474,6 +541,8 @@ class Scraper:
         filter_query = quote(json.dumps({name: True for name in filter_query})) if filter_query else ''
 
         if merchant:
+            if merchant == 'amazon':
+                merchant = self.country.amazon_merchant_id
             return self._abs_path('/gp/aod/ajax/ref=auto_load_aod?asin={asin}&pc=dp&pageno={page}&m={merchant}' \
                                   '{filter}'.format(asin=asin, page=page, merchant=merchant,
                                                     filter='&filter={}'.format(filter_query) if filter_query else ''))
@@ -514,8 +583,9 @@ class Scraper:
     def _abs_path(self, endpoint: str) -> str:
         return urljoin('https://{}'.format(self.domain), endpoint)
 
-    def _get_media_variations(self, soup: BeautifulSoup, asin: str) -> Tuple[List[MediaVariation],
-                                                                             Optional[MediaVariation]]:
+    @staticmethod
+    def _get_media_variations(soup: BeautifulSoup, asin: str) -> Tuple[List[MediaVariation],
+                                                                       Optional[MediaVariation]]:
 
         variations: List[MediaVariation] = []
         variation = None

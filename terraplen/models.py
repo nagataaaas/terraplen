@@ -140,6 +140,10 @@ class Country(Enum):
 
     @property
     def lang_and_currency(self) -> Tuple[Language, Currency]:
+        """
+        default language and currency for Country
+        :return: Tuple[Language, Currency]
+        """
         return {
             Country.Australia: (Language.EnglishAustralia, Currency.AustralianDollar),
             Country.Brazil: (Language.Portuguese, Currency.BrazilianReal),
@@ -165,6 +169,10 @@ class Country(Enum):
 
     @property
     def amazon_merchant_id(self) -> str:
+        """
+        Amazon's Merchant ID in Current Region.
+        :return: str. merchantId
+        """
         return {
             Country.Australia: "ANEGB3WVEVKZB",
             Country.Brazil: "A1ZZFT5FULY4LN",
@@ -192,6 +200,16 @@ class Country(Enum):
 class Offer:
     def __init__(self, price: Union[float, None], currency: str, rating: float, condition: str, ships_from: str,
                  sold_by: str, sold_by_url: str):
+        """
+        offer for product
+        :param price: price of offer
+        :param currency: currency of offer
+        :param rating: rating of seller
+        :param condition: condition of product
+        :param ships_from: ships from
+        :param sold_by: seller name
+        :param sold_by_url: seller's page
+        """
         self.price = price
         self.currency = currency
         self.approx_review = rating
@@ -209,17 +227,27 @@ class Offer:
 
 
 class OfferList:
-    def __init__(self, product_name: str, offer_count: int, offers: List[Offer], settings: Dict[str, bool]):
+    def __init__(self, product_name: str, offer_count: int, offers: List[Offer], settings: Dict[str, bool],
+                 last_page=False):
+        """
+        container of Offer
+        :param product_name: products name
+        :param offer_count: total offers count
+        :param offers: offers
+        :param settings: settings of offers filter
+        """
         self.product_name = product_name
         self.offer_count = offer_count
         self.offers = offers
         self.page = settings['page']
         self.settings = settings
+        self.last_page = last_page
 
     def __repr__(self):
         return 'OfferList(product_name={!r}, offer_count={}, ' \
-               'offers={!r}, page={}, settings={!r})'.format(self.product_name, self.offer_count,
-                                                             self.offers, self.page, self.settings)
+               'offers={!r}, page={}, settings={!r}, last_page={})'.format(self.product_name, self.offer_count,
+                                                                           self.offers, self.page, self.settings,
+                                                                           self.last_page)
 
 
 class Review:

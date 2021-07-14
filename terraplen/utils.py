@@ -28,9 +28,9 @@ def product(categories: List, depth=0):
     for variation in current.variations:
         if len(categories) > depth + 1:
             for p in product(categories, depth + 1):
-                yield [[variation, current.is_visual]] + [p]
+                yield [[variation, current.is_visual]] + p
         else:
-            yield [variation, current.is_visual]
+            yield [[variation, current.is_visual]]
 
 
 def parse_asin_from_url(url: str) -> Optional[str]:
