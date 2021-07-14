@@ -161,6 +161,7 @@ class Scraper:
                 products = []
                 for variations in product(categories):
                     text, dimension = ' '.join(v[0].name for v in variations if v[1]), '_'.join(str(v[0].value) for v in variations)
+                    text, dimension = text.replace('/', r'\/'), dimension.replace('/', r'\/')
                     images = [ProductImage.from_json(data) for data in image[selector.Product.ColorImages][text]]
                     hero_image = image[selector.Product.HeroImages][text] and \
                                  ProductImage.from_json(image[selector.Product.HeroImages][text])
