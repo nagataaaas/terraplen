@@ -368,7 +368,8 @@ class Scraper:
             if not price:
                 continue
             if price_fraction:
-                price = float(find_number(price.text.replace(',', '')) + find_number(price_fraction.text))
+                price = float('{}.{}'.format(int(find_number(price.text.replace(',', ''))),
+                                             int(find_number(price_fraction.text))))
             else:
                 price = int(find_number(price.text.replace(',', '')))
 
@@ -483,7 +484,8 @@ class Scraper:
                                                item.select_one(selector.Offer.PriceSymbol))
             if price:
                 if price_fraction:
-                    price = float(find_number(price.text.replace(',', '')) + find_number(price_fraction.text))
+                    price = float('{}.{}'.format(int(find_number(price.text.replace(',', ''))),
+                                                 int(find_number(price_fraction.text))))
                 else:
                     price = int(find_number(price.text.replace(',', '')))
 
@@ -508,8 +510,8 @@ class Scraper:
                                                           option.select_one(selector.Offer.PriceSymbol))
                     if _price:
                         if _price_fraction:
-                            _price = float(find_number(_price.text.replace(',', '')) +
-                                           find_number(_price_fraction.text))
+                            _price = float('{}.{}'.format(int(find_number(_price.text.replace(',', ''))),
+                                                          int(find_number(_price_fraction.text))))
                         else:
                             _price = int(find_number(_price.text.replace(',', '')))
                         _currency = _currency.string
