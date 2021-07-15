@@ -240,26 +240,15 @@ class Scraper:
 
     def get_with_update_cookie(self, url: str) -> requests.Response:
         resp = requests.get(url, headers=self._create_header())
-        if resp.status_code == DetectedAsBotException:
-            raise BotDetectedStatusCode
-        if resp.status_code == ProductNotFoundCode:
-            raise ProductNotFoundException
-        if self.language.value != resp.cookies.get(self._language_cookie_key, self.language.value):
-            warn('looks like language `{}` is not acceptable for `{}`. '
-                 'Server returned to set `{}`. Language updated'.format(self.language.value, self.domain,
-                                                                        resp.cookies[self._language_cookie_key]))
-            self.language = Language(resp.cookies[self._language_cookie_key])
-            self.set_language(resp.cookies[self._language_cookie_key])
-        if self.currency.value != resp.cookies.get('i18n-prefs', self.currency.value):
-            warn('looks like currency `{}` is not acceptable for `{}`. '
-                 'Server returned to set `{}`'.format(self.currency.value, self.domain,
-                                                      resp.cookies['i18n-prefs']))
-            self.set_currency(resp.cookies['i18n-prefs'])
-        self.cookie.update(resp.cookies)
+        self._update_with_resp(resp)
         return resp
 
     def post_with_update_cookie(self, url: str, data: Dict) -> requests.Response:
         resp = requests.post(url, data=data, headers=self._create_header())
+        self._update_with_resp(resp)
+        return resp
+
+    def _update_with_resp(self, resp: requests.Response):
         if resp.status_code == DetectedAsBotException:
             raise BotDetectedStatusCode
         if resp.status_code == ProductNotFoundCode:
@@ -275,7 +264,6 @@ class Scraper:
                                                       resp.cookies['i18n-prefs']))
             self.set_currency(resp.cookies['i18n-prefs'])
         self.cookie.update(resp.cookies)
-        return resp
 
     def set_country(self, country: Country):
         """
