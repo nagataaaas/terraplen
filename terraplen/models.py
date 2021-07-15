@@ -253,6 +253,16 @@ class OfferList:
 class Review:
     def __init__(self, reviewer: str, reviewer_url: str, review_url: str, title: str, rating: int, helpful: int,
                  body: str):
+        """
+        class for a single review
+        :param reviewer: reviewer's name
+        :param reviewer_url: reviewer's page
+        :param review_url: review page
+        :param title: title of review
+        :param rating: rating of product
+        :param helpful: how many people found this review helpful
+        :param body: body text
+        """
         self.reviewer = reviewer
         self.reviewer_url = reviewer_url
         self.review_url = review_url
@@ -269,6 +279,14 @@ class Review:
 
 class ReviewList:
     def __init__(self, reviews: List[Review], asin: str, country: Country, settings: 'ReviewSettings', last_page=False):
+        """
+        review container
+        :param reviews: reviews
+        :param asin: asin of product
+        :param country: country these reviews written in
+        :param settings: settings of review filter
+        :param last_page: whether this is the last page of reviews
+        """
         self.reviews = reviews
         self.asin = asin
         self.country = country
@@ -277,14 +295,16 @@ class ReviewList:
         self.last_page = last_page
 
     def __repr__(self):
-        return 'ReviewList(reviews={!r}, asin={!r}, country={}, page={}, last_page={})'.format(self.reviews,
-                                                                                               self.asin,
-                                                                                               self.country,
-                                                                                               self.page,
-                                                                                               self.last_page)
+        return 'ReviewList(reviews={!r}, asin={!r}, country={}, ' \
+               'settings={!r}, page={}, last_page={})'.format(self.reviews, self.asin, self.country,
+                                                              self.page, self.settings, self.last_page)
 
 
 class ReviewParameter:
+    """
+    parameters for review settings
+    """
+
     class SortBy(Enum):
         Helpful = 'helpful'
         """Sort by helpful. default"""
@@ -346,13 +366,30 @@ class ReviewSettings:
                  format_type: ReviewParameter.FormatType = ReviewParameter.FormatType.AllFormats,
                  media_type: ReviewParameter.MediaType = ReviewParameter.MediaType.AllContents,
                  filter_by_star: ReviewParameter.FilterByStar = ReviewParameter.FilterByStar.AllStars,
-                 page_number: int = 1, filter_by_language: str = '', keyword='', page_size=10):
+                 page_number: int = 1, filter_by_language: Union[str, Language] = '', keyword='', page_size=10):
+        """
+        Settings for review search
+        :param sort_by: sorting setting. defaults to `ReviewParameter.SortBy.Helpful`
+        :param reviewer_type: whether filter with verified purchased reviewer or not.
+        defaults to `ReviewParameter.ReviewerType.AllReviews`
+        :param format_type: whether filter with current format(variation) of product.
+        defaults to `ReviewParameter.FormatType.AllFormats`
+        :param media_type: filter of review's content type. defaults to `ReviewParameter.MediaType.AllContents`
+        :param filter_by_star: filter of review's star and evaluation.
+        defaults to `ReviewParameter.FilterByStar.AllStars`
+        :param page_number: page number of review
+        :param filter_by_language: filter of review language.
+        :param keyword: if given, filter reviews with keyword.
+        :param page_size: how many reviews to be in a single page. up to 20.
+        """
         self.sort_by = sort_by
         self.reviewer_type = reviewer_type
         self.format_type = format_type
         self.media_type = media_type
         self.filter_by_star = filter_by_star
         self.page_number = page_number
+        if isinstance(filter_by_language, Language):
+            filter_by_language = filter_by_language.value
         self.filter_by_language = filter_by_language
         self.keyword = keyword
         if not 1 <= page_size <= 20:
@@ -361,6 +398,9 @@ class ReviewSettings:
         self.page_size = page_size
 
     def to_dict(self, asin: str) -> Dict:
+        """
+        create dict to pass to amazon
+        """
         return {'sortBy': self.sort_by.value,
                 # 'recent' or 'helpful'(default)
 
@@ -389,9 +429,25 @@ class ReviewSettings:
                 'asin': asin,
                 'scope': 'reviewsAjax1'}
 
+    def __repr__(self):
+        return 'ReviewSettings(sort_by={!r}, reviewer_type={!r}, format_type={!r}, ' \
+               'media_type={!r}, filter_by_star={!r}, page_number={}, ' \
+               'filter_by_language={!r}, keyword={!r}, page_size={})'.format(self.sort_by, self.reviewer_type,
+                                                                             self.format_type, self.media_type,
+                                                                             self.filter_by_star, self.page_number,
+                                                                             self.filter_by_language, self.keyword,
+                                                                             self.page_size)
+
 
 class VideoImage:
     def __init__(self, url: str, width: int, height: int, extension: str = ''):
+        """
+        thumbnail for video of product
+        :param url: url of image
+        :param width: width of image
+        :param height: height of image
+        :param extension: extension of image. 'png' for instance.
+        """
         self.url = url
         self.width = width
         self.height = height
@@ -399,11 +455,29 @@ class VideoImage:
             extension = os.path.splitext(url)[1][1:]
         self.extension = extension
 
+    def __repr__(self):
+        return 'VideoImage(url={!r}, width={}, height={}, extension={!r})'.format(self.url, self.width, self.height,
+                                                                                  self.extension)
+
 
 class Video:
     def __init__(self, duration_seconds: int, duration_timestamp: str, is_hero_video: bool, language_code: str,
                  slate: VideoImage, thumb: VideoImage, title: str, url: str, variant: 'Product', width: int,
                  height: int):
+        """
+        video of product
+        :param duration_seconds: seconds of video duration
+        :param duration_timestamp: display of video duration. '01:24' for instance
+        :param is_hero_video: whether this is hero video or not
+        :param language_code: language code of video
+        :param slate: slate image
+        :param thumb: thumbnail of video
+        :param title: title of video
+        :param url: url of video
+        :param variant: variant of product of this video
+        :param width: width of video
+        :param height: height of video
+        """
         self.duration_seconds = duration_seconds
         self.duration_timestamp = duration_timestamp
         self.is_hero_video = is_hero_video
@@ -429,13 +503,21 @@ class Video:
                      width=data['videoWidth'], height=data['videoHeight'])
 
     def __repr__(self):
-        return 'Video(duration_seconds={}, ' \
-               'language_code={!r}, title={!r}, url={!r})'.format(self.duration_seconds, self.language_code,
-                                                                  self.title, self.url)
+        return 'Video(duration_seconds={}, duration_timestamp={!r}, is_hero_video={!r}, ' \
+               'language_code={!r}, slate={!r}, thumb={!r}, title={!r}, ' \
+               'url={!r}, variant={!r}, width={}, height={})'.format(self.duration_seconds, self.duration_timestamp,
+                                                                     self.is_hero_video, self.language_code,
+                                                                     self.slate, self.thumb, self.title, self.url,
+                                                                     self.variant, self.width, self.height)
 
 
 class Variation:
     def __init__(self, name: str, value: int):
+        """
+        variation of product's categories
+        :param name: display name of variation
+        :param value: value of variation
+        """
         self.name = name
         self.value = value
 
@@ -448,6 +530,13 @@ class Variation:
 
 class Category:
     def __init__(self, name: str, display_name: str, variations: List[Variation], is_visual: bool):
+        """
+        category of product. container of variations
+        :param name: name of category
+        :param display_name: display_name of category. This depends on current Language
+        :param variations: variations of category
+        :param is_visual: whether this category is visual variation
+        """
         self.name = name
         self.display_name = display_name
         self.variations = variations
@@ -462,6 +551,14 @@ class Category:
 
 class ProductImage:
     def __init__(self, hi_res: str, large: str, thumb: str, variant: str, main: Dict[str, Tuple[int, int]]):
+        """
+        Each product image
+        :param hi_res: hi_res image url
+        :param large: large image url
+        :param thumb: thumbnail url
+        :param variant: variant of this image
+        :param main: other image size. dict[image_url, (height, width)]
+        """
         self.hi_res = hi_res
         self.large = large
         self.thumb = thumb
@@ -475,19 +572,31 @@ class ProductImage:
 
     @property
     def largest_image(self) -> str:
+        """
+        largest image
+        """
         if self.hi_res:
             return self.hi_res
         if self.large:
             return self.large
         if self.main:
-            return sorted([self.main.items()], key=lambda x: x[1])[-1][0]
+            return sorted(list(self.main.items()), key=lambda x: x[1])[-1][0]
+        return self.thumb
 
     def __repr__(self):
-        return 'ProductImage(hi_res={!r}, variant={!r})'.format(self.hi_res, self.variant)
+        return 'ProductImage(hi_res={!r}, variant={!r}, thumb={!r}, ' \
+               'variant={!r}, main={!r})'.format(self.hi_res, self.variant, self.thumb, self.variant, self.main)
 
 
 class MediaImage:
     def __init__(self, main: str, thumb: str, width: int, height: int):
+        """
+        images for books, movies
+        :param main: image url
+        :param thumb: thumbnail of image
+        :param width: width of image
+        :param height: height of image
+        """
         self.main = main
         self.thumb = thumb
         self.width = width
@@ -499,18 +608,24 @@ class MediaImage:
 
     @property
     def largest_image(self) -> str:
+        """
+        largest image
+        """
         if self.main:
             return self.main
         return self.thumb
 
     def __repr__(self):
-        return 'MediaImage(main={}, thumb={}, width={}, height={})'.format(self.main, self.thumb, self.width,
+        return 'MediaImage(main={!r}, thumb={!r}, width={}, height={})'.format(self.main, self.thumb, self.width,
                                                                            self.height)
 
 
 class Product:
     def __init__(self, asin: str, title: str, variation: List[Variation], images: List[ProductImage],
                  videos: List[Video], hero_images: List[ProductImage], hero_videos=List[Video]):
+        """
+        product of
+        """
         self.asin = asin
         self.title = title
         self.variation = variation
