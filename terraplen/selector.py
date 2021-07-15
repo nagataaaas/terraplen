@@ -127,3 +127,21 @@ class Variation:
     Values = 'li.swatchElement > span > span > span > a > span > span.a-size-base'
 
     ValidClass = 'a-color-price'
+
+class Search:
+    LastPage = 'ul.a-pagination > li:nth-last-child(2)'
+    Items = 'div.s-result-item.s-asin'
+    AsinData = 'data-asin'
+    Name = 'h2 > a > span'
+
+    Price = 'span.a-price-whole'
+    PriceFraction = 'span.a-price-fraction'
+    PriceSymbol = 'span.a-price-symbol'
+
+    Options = 'div.a-section > div.sg-row:nth-child(2) > div.sg-col:nth-child(2) >* div.a-section >* div.a-section'
+
+    Mini = 'a-spacing-top-small'
+    Small = 'a-spacing-top-mini'
+
+    OptionName = 'a.a-text-bold'
+    Sponsored = 's-sponsored-label-text'

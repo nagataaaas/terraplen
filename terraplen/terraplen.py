@@ -1,26 +1,23 @@
-import requests
+import json
+import re
+from typing import Dict, Optional, List, Tuple, Union
+from urllib.parse import quote, urljoin
+from warnings import warn
 
+import requests
+from bs4 import BeautifulSoup
+
+from terraplen import numbers
 from terraplen import selector
-from terraplen.wrappers import retry
 from terraplen.exception import (DetectedAsBotException, BotDetectedStatusCode,
                                  ProductNotFoundCode, ProductNotFoundException)
-from terraplen.utils import find_number, remove_whitespace, to_json, product, parse_asin_from_url
 from terraplen.models import (Offer, OfferList, Review, ReviewList, Country, UserAgents, Currency, Language,
                               ReviewSettings, ProductImage, Product, Video, MediaImage, Book, Kindle, MediaVariation,
                               Variation, ProductVariations, Category, Movie, PrimeVideoOption, PrimeVideoTVSeason,
                               PrimeVideoMovie, PrimeVideoTV, SearchCategory, SearchResultProduct,
                               SearchResultProductOffers, SearchResult)
-from terraplen import numbers
-
-from bs4 import BeautifulSoup
-import json
-from urllib.parse import quote, urljoin
-from typing import Dict, Optional, List, Tuple, Union
-import re
-
-from warnings import warn
-
-import html
+from terraplen.utils import find_number, remove_whitespace, to_json, product, parse_asin_from_url
+from terraplen.wrappers import retry
 
 
 def get_media_variations(soup: BeautifulSoup, asin: str) -> Tuple[List[MediaVariation], Optional[MediaVariation]]:
@@ -49,7 +46,7 @@ def parse_product_variations(soup: BeautifulSoup, image: str) -> (bool, ProductV
     image, twister = to_json(image), to_json(twister)
 
     categories: List[Category] = []
-    title = html.unescape(image[selector.Product.Title])
+    title = image[selector.Product.Title]
     for dimension_text, dimension_display in twister[selector.Product.VariationLabels].items():
         current_variation = []
         category = Category(dimension_text, dimension_display, [],
@@ -93,7 +90,7 @@ def parse_product(soup: BeautifulSoup, image: str, asin: str) -> Product:
     twister = '{' + twister + '}'
     image, twister = to_json(image), to_json(twister)
 
-    title = html.unescape(image[selector.Product.Title])
+    title = image[selector.Product.Title]
     images = [ProductImage.from_json(data) for data in
               twister[selector.Product.ColorImages][selector.Product.Initial]]
     hero_images = [ProductImage.from_json(data) for data in
@@ -112,7 +109,7 @@ def parse_book(soup: BeautifulSoup, twister: str, image: str, asin: str) -> Book
 
     variations, variation = get_media_variations(soup, asin)
 
-    title = html.unescape(image[selector.Product.Title])
+    title = image[selector.Product.Title]
     images = [MediaImage.from_json(data) for data in twister[selector.Product.ImageGalleryData]]
     videos = [Video.from_json(data) for data in image[selector.Product.Videos]]
     return Book(asin=asin, title=title, images=images, videos=videos, variations=variations,
@@ -129,7 +126,7 @@ def parse_movie(soup: BeautifulSoup, image: str, asin: str) -> Movie:
 
     variations, variation = get_media_variations(soup, asin)
 
-    title = html.unescape(image[selector.Product.Title])
+    title = image[selector.Product.Title]
     images = [ProductImage.from_json(data) for data in
               twister[selector.Product.ColorImages][selector.Product.Initial]]
     videos = [Video.from_json(data) for data in image[selector.Product.Videos]]
@@ -441,7 +438,7 @@ class Scraper:
         :return: ReviewList
         """
 
-        resp = self._post_with_update_cookie(self._url_reviews(page), data=setting.to_dict(asin))
+        resp = self._post_with_update_cookie(self._url_reviews(page), data=setting.to_dict(asin, page))
         review = []
 
         for dat in resp.text.split(selector.Review.StreamStrip):
@@ -490,7 +487,7 @@ class Scraper:
                         review_url = self._abs_path(review_url['href'])
 
                     review.append(Review(reviewer, reviewer_url, review_url, title, rating, helpful, body))
-        return ReviewList(review, asin, self.country, setting, len(review) != setting.page_size)
+        return ReviewList(review, asin, self.country, setting, page, len(review) != setting.page_size)
 
     @retry
     def search(self, keyword: str, page: int = None, min_price: int = None, max_price: int = None, merchant: str = None,
@@ -506,15 +503,20 @@ class Scraper:
         """
 
         resp = self._get_with_update_cookie(self._url_search(keyword, page, min_price, max_price, merchant, category))
+        page = page or 1
         soup = BeautifulSoup(resp.text, 'lxml')
+        last_page = soup.select_one(selector.Search.LastPage)
+        if not last_page:
+            return SearchResult([], keyword, page, min_price, max_price, merchant, category, None, True)
+        last_page = int(last_page.text)
         result = []
-        for item in soup.select('div.s-result-item.s-asin'):
-            asin = item['data-asin']
-            name = item.select_one('h2 > a > span').string
+        for item in soup.select(selector.Search.Items):
+            asin = item[selector.Search.AsinData]
+            name = item.select_one(selector.Search.Name).string
 
-            price, price_fraction, currency = (item.select_one(selector.Offer.Price),
-                                               item.select_one(selector.Offer.PriceFraction),
-                                               item.select_one(selector.Offer.PriceSymbol))
+            price, price_fraction, currency = (item.select_one(selector.Search.Price),
+                                               item.select_one(selector.Search.PriceFraction),
+                                               item.select_one(selector.Search.PriceSymbol))
             if price:
                 if price_fraction:
                     price = float('{}.{}'.format(int(find_number(price.text.replace(',', ''))),
@@ -525,22 +527,21 @@ class Scraper:
                 currency = currency.text
             options = []
 
-            for option in item.select(
-                    'div.a-section > div.sg-row:nth-child(2) > div.sg-col:nth-child(2) >* div.a-section >* div.a-section'):
-                if 'a-spacing-top-small' in option['class'] or 'a-spacing-top-mini' in option['class']:
-                    option_name = option.select_one('a.a-text-bold')
+            for option in item.select(selector.Search.Options):
+                if selector.Search.Mini in option['class'] or selector.Search.Small in option['class']:
+                    option_name = option.select_one(selector.Search.Options)
                     if option_name:
                         option_name = option_name.string
 
                     _asin = option.select_one('a')
-                    if not _asin or 's-sponsored-label-text' in _asin['class']:
+                    if not _asin or selector.Search.Sponsored in _asin['class']:
                         continue
                     if _asin:
                         _asin = parse_asin_from_url(_asin['href'])
 
-                    _price, _price_fraction, _currency = (option.select_one(selector.Offer.Price),
-                                                          option.select_one(selector.Offer.PriceFraction),
-                                                          option.select_one(selector.Offer.PriceSymbol))
+                    _price, _price_fraction, _currency = (option.select_one(selector.Search.Price),
+                                                          option.select_one(selector.Search.PriceFraction),
+                                                          option.select_one(selector.Search.PriceSymbol))
                     if _price:
                         if _price_fraction:
                             _price = float('{}.{}'.format(int(find_number(_price.text.replace(',', ''))),
@@ -554,7 +555,22 @@ class Scraper:
                 price = min([price] + [p.price or float('inf') for p in options])
             result.append(SearchResultProduct(asin, name, currency, price, options))
 
-        return SearchResult(result, keyword, page or 1, min_price, max_price, merchant, category)
+        return SearchResult(result, keyword, page, min_price, max_price, merchant, category, last_page,
+                            page == last_page)
+
+    def get_next_page(self, previous_result: Union[OfferList, ReviewList, SearchResult]) -> \
+            Union[OfferList, ReviewList, SearchResult]:
+        if isinstance(previous_result, OfferList):
+            setting = {**previous_result.settings}
+            setting['page'] += 1
+            return self.get_offers(asin=previous_result.asin, **setting)
+        elif isinstance(previous_result, ReviewList):
+            return self.get_review(asin=previous_result.asin, page=previous_result.page+1,
+                                   setting=previous_result.settings.copy())
+        elif isinstance(previous_result, SearchResult):
+            return self.search(keyword=previous_result.keyword, page=previous_result.page+1,
+                               min_price=previous_result.min_price, max_price=previous_result.max_price,
+                               merchant=previous_result.merchant, category=previous_result.category)
 
     def _url_top_page(self) -> str:
         return self._abs_path('')

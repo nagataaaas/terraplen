@@ -1,9 +1,11 @@
-from enum import Enum
-from warnings import warn
-from typing import List, Dict, Union, Tuple
 import os
-from terraplen.utils import thumb_size
 from datetime import date, datetime
+from enum import Enum
+from html import unescape
+from typing import List, Dict, Union, Tuple, Optional
+from warnings import warn
+
+from terraplen.utils import thumb_size
 
 
 class UserAgents:
@@ -227,27 +229,29 @@ class Offer:
 
 
 class OfferList:
-    def __init__(self, product_name: str, offer_count: int, offers: List[Offer], settings: Dict[str, bool],
-                 last_page=False):
+    def __init__(self, asin: str, product_name: str, offer_count: int, offers: List[Offer], settings: Dict[str, bool],
+                 is_last_page=False):
         """
         container of Offer
+        :param asin: asin of product
         :param product_name: products name
         :param offer_count: total offers count
         :param offers: offers
         :param settings: settings of offers filter
         """
-        self.product_name = product_name
+        self.asin = asin
+        self.product_name = unescape(product_name)
         self.offer_count = offer_count
         self.offers = offers
         self.page = settings['page']
         self.settings = settings
-        self.last_page = last_page
+        self.is_last_page = is_last_page
 
     def __repr__(self):
-        return 'OfferList(product_name={!r}, offer_count={}, ' \
-               'offers={!r}, page={}, settings={!r}, last_page={})'.format(self.product_name, self.offer_count,
-                                                                           self.offers, self.page, self.settings,
-                                                                           self.last_page)
+        return 'OfferList(asin={!r}, product_name={!r}, offer_count={}, ' \
+               'offers={!r}, page={}, settings={!r}, is_last_page={})'.format(self.asin, self.product_name,
+                                                                              self.offer_count, self.offers, self.page,
+                                                                              self.settings, self.is_last_page)
 
 
 class Review:
@@ -263,13 +267,13 @@ class Review:
         :param helpful: how many people found this review helpful
         :param body: body text
         """
-        self.reviewer = reviewer
+        self.reviewer = unescape(reviewer)
         self.reviewer_url = reviewer_url
         self.review_url = review_url
-        self.title = title
+        self.title = unescape(title)
         self.rating = rating
         self.helpful = helpful
-        self.body = body
+        self.body = unescape(body)
 
     def __repr__(self):
         return 'Review(reviewer={!r}, reviewer_url={!r}, review_url={!r}, title={!r}, rating={}, helpful={}, body={!r})'.format(
@@ -278,26 +282,27 @@ class Review:
 
 
 class ReviewList:
-    def __init__(self, reviews: List[Review], asin: str, country: Country, settings: 'ReviewSettings', last_page=False):
+    def __init__(self, reviews: List[Review], asin: str, country: Country, settings: 'ReviewSettings',
+                 page: int, is_last_page: bool):
         """
         review container
         :param reviews: reviews
         :param asin: asin of product
         :param country: country these reviews written in
         :param settings: settings of review filter
-        :param last_page: whether this is the last page of reviews
+        :param is_last_page: whether this is the last page of reviews
         """
         self.reviews = reviews
         self.asin = asin
         self.country = country
         self.settings = settings
-        self.page = settings.page_number
-        self.last_page = last_page
+        self.page = page
+        self.is_last_page = is_last_page
 
     def __repr__(self):
         return 'ReviewList(reviews={!r}, asin={!r}, country={}, ' \
-               'settings={!r}, page={}, last_page={})'.format(self.reviews, self.asin, self.country,
-                                                              self.page, self.settings, self.last_page)
+               'settings={!r}, page={}, is_last_page={})'.format(self.reviews, self.asin, self.country,
+                                                                 self.page, self.settings, self.is_last_page)
 
 
 class ReviewParameter:
@@ -366,7 +371,7 @@ class ReviewSettings:
                  format_type: ReviewParameter.FormatType = ReviewParameter.FormatType.AllFormats,
                  media_type: ReviewParameter.MediaType = ReviewParameter.MediaType.AllContents,
                  filter_by_star: ReviewParameter.FilterByStar = ReviewParameter.FilterByStar.AllStars,
-                 page_number: int = 1, filter_by_language: Union[str, Language] = '', keyword='', page_size=10):
+                 filter_by_language: Union[str, Language] = '', keyword='', page_size=10):
         """
         Settings for review search
         :param sort_by: sorting setting. defaults to `ReviewParameter.SortBy.Helpful`
@@ -377,7 +382,6 @@ class ReviewSettings:
         :param media_type: filter of review's content type. defaults to `ReviewParameter.MediaType.AllContents`
         :param filter_by_star: filter of review's star and evaluation.
         defaults to `ReviewParameter.FilterByStar.AllStars`
-        :param page_number: page number of review
         :param filter_by_language: filter of review language.
         :param keyword: if given, filter reviews with keyword.
         :param page_size: how many reviews to be in a single page. up to 20.
@@ -387,7 +391,6 @@ class ReviewSettings:
         self.format_type = format_type
         self.media_type = media_type
         self.filter_by_star = filter_by_star
-        self.page_number = page_number
         if isinstance(filter_by_language, Language):
             filter_by_language = filter_by_language.value
         self.filter_by_language = filter_by_language
@@ -397,7 +400,7 @@ class ReviewSettings:
             page_size = 10
         self.page_size = page_size
 
-    def to_dict(self, asin: str) -> Dict:
+    def to_dict(self, asin: str, page: int) -> Dict:
         """
         create dict to pass to amazon
         """
@@ -418,7 +421,7 @@ class ReviewSettings:
                 # {'one', 'two', 'three', 'four', 'five'} + '_star' or
                 # 'positive' or 'critical' or 'all_stars'(default)
 
-                'pageNumber': self.page_number,  # default=1
+                'pageNumber': page,  # default=1
                 'filterByLanguage': self.filter_by_language,
                 'filterByKeyword': self.keyword,  # search
                 'shouldAppend': 'undefined',
@@ -429,12 +432,17 @@ class ReviewSettings:
                 'asin': asin,
                 'scope': 'reviewsAjax1'}
 
+    def copy(self) -> 'ReviewSettings':
+        return ReviewSettings(self.sort_by, self.reviewer_type, self.format_type,
+                              self.media_type, self.filter_by_star, self.filter_by_language,
+                              self.keyword, self.page_size)
+
     def __repr__(self):
         return 'ReviewSettings(sort_by={!r}, reviewer_type={!r}, format_type={!r}, ' \
-               'media_type={!r}, filter_by_star={!r}, page_number={}, ' \
+               'media_type={!r}, filter_by_star={!r}, ' \
                'filter_by_language={!r}, keyword={!r}, page_size={})'.format(self.sort_by, self.reviewer_type,
                                                                              self.format_type, self.media_type,
-                                                                             self.filter_by_star, self.page_number,
+                                                                             self.filter_by_star,
                                                                              self.filter_by_language, self.keyword,
                                                                              self.page_size)
 
@@ -518,7 +526,7 @@ class Variation:
         :param name: display name of variation
         :param value: value of variation
         """
-        self.name = name
+        self.name = unescape(name)
         self.value = value
 
     def __repr__(self):
@@ -538,7 +546,7 @@ class Category:
         :param is_visual: whether this category is visual variation
         """
         self.name = name
-        self.display_name = display_name
+        self.display_name = unescape(display_name)
         self.variations = variations
         self.is_visual = is_visual
 
@@ -617,7 +625,7 @@ class MediaImage:
 
     def __repr__(self):
         return 'MediaImage(main={!r}, thumb={!r}, width={}, height={})'.format(self.main, self.thumb, self.width,
-                                                                           self.height)
+                                                                               self.height)
 
 
 class Product:
@@ -634,7 +642,7 @@ class Product:
         :param hero_videos: hero videos of product
         """
         self.asin = asin
-        self.title = title
+        self.title = unescape(title)
         self.variation = variation
         self.images = images
         self.videos = videos
@@ -657,7 +665,7 @@ class MediaVariation:
         :param price: price of variation
         :param asin: asin of variation
         """
-        self.name = name
+        self.name = unescape(name)
         self.price = price
         self.asin = asin
 
@@ -668,8 +676,17 @@ class MediaVariation:
 class Book:
     def __init__(self, asin: str, title: str, images: List[MediaImage], videos: List[Video],
                  variations: List[MediaVariation], current_variation: MediaVariation):
+        """
+        book data
+        :param asin: asin of book
+        :param title: title of book
+        :param images: images of book
+        :param videos: videos of book
+        :param variations: book's variations.
+        :param current_variation: current variation
+        """
         self.asin = asin
-        self.title = title
+        self.title = unescape(title)
         self.images = images
         self.videos = videos
         self.variations = variations
@@ -685,8 +702,17 @@ class Book:
 class Movie:
     def __init__(self, asin: str, title: str, images: List[ProductImage], videos: List[Video],
                  variations: List[MediaVariation], current_variation: MediaVariation):
+        """
+        movie data
+        :param asin: asin of movie
+        :param title: title of movie
+        :param images: images of movie
+        :param videos: videos of movie
+        :param variations: movie's variations.
+        :param current_variation: current variation
+        """
         self.asin = asin
-        self.title = title
+        self.title = unescape(title)
         self.images = images
         self.videos = videos
         self.variations = variations
@@ -702,8 +728,16 @@ class Movie:
 class Kindle:
     def __init__(self, asin: str, title: str, image: MediaImage,
                  variations: List[MediaVariation], current_variation: MediaVariation):
+        """
+        Kindle book data
+        :param asin: asin of Kindle
+        :param title: title of Kindle
+        :param image: images of Kindle
+        :param variations: Kindle's variations.
+        :param current_variation: current variation
+        """
         self.asin = asin
-        self.title = title
+        self.title = unescape(title)
         self.image = image
         self.variations = variations
         self.current_variation = current_variation
@@ -717,7 +751,15 @@ class Kindle:
 class ProductVariations:
     def __init__(self, title: str, products: List[Product], landing: Product, parent_asin: str,
                  categories: List[Category]):
-        self.title = title
+        """
+        container for Product which has variations
+        :param title: title of product
+        :param products: all products with variations
+        :param landing: landing product.
+        :param parent_asin: parent product's asin
+        :param categories: all categories
+        """
+        self.title = unescape(title)
         self.products = products
         self.landing = landing
         self.parent_asin = parent_asin
@@ -732,9 +774,17 @@ class ProductVariations:
 
 class PrimeVideoOption:
     def __init__(self, asin: str, is_prime: bool, purchase_type: str, price: str, video_quality: str):
+        """
+        prime video's purchase options
+        :param asin: asin of option
+        :param is_prime: whether this option is prime
+        :param purchase_type: purchase type
+        :param price: price
+        :param video_quality: video quality
+        """
         self.asin = asin
         self.is_prime = is_prime
-        self.purchase_type = purchase_type
+        self.purchase_type = unescape(purchase_type)
         self.price = price
         self.video_quality = video_quality
 
@@ -748,8 +798,17 @@ class PrimeVideoOption:
 
 class PrimeVideoMovie:
     def __init__(self, asin: str, title: str, options: List[PrimeVideoOption], realm: str, locale: str, territory: str):
+        """
+        prime video movie data
+        :param asin: asin of prime video movie
+        :param title: title of prime video movie
+        :param options: options of prime video movie
+        :param realm: realm of prime video movie
+        :param locale: locale of prime video movie
+        :param territory: territory of prime video movie
+        """
         self.asin = asin
-        self.title = title
+        self.title = unescape(title)
         self.options = options
         self.realm = realm
         self.locale = locale
@@ -764,15 +823,28 @@ class PrimeVideoMovie:
 class PrimeVideoTVSeason:
     def __init__(self, asin: str, title: str, rating: int, image_url: str, is_prime: bool, maturity_rating: str,
                  release_date: date, season_number: int, synopsis: str, title_type: str):
+        """
+        prime video tv series's season info
+        :param asin: asin of season
+        :param title: title of season
+        :param rating: rating of season
+        :param image_url: packshot's url
+        :param is_prime: whether this season is prime
+        :param maturity_rating: maturity rating
+        :param release_date: release date
+        :param season_number: season number
+        :param synopsis: synopsis
+        :param title_type: title type. 'season' for instance.
+        """
         self.asin = asin
-        self.title = title
+        self.title = unescape(title)
         self.rating = rating
         self.image_url = image_url
         self.is_prime = is_prime
         self.maturity_rating = maturity_rating
         self.release_date = release_date
         self.season_number = season_number
-        self.synopsis = synopsis
+        self.synopsis = unescape(synopsis)
         self.title_type = title_type
 
     @classmethod
@@ -780,7 +852,7 @@ class PrimeVideoTVSeason:
         _date = datetime.strptime(data['releaseDate'], '%Y/%m/%d').date()
         return PrimeVideoTVSeason(asin, data['title'], data['amazonRating']['value'], data['images']['packshot'],
                                   data['isPrime'], data['ratingBadge']['id'], _date, data['seasonNumber'],
-                                  data['title'], data['titleType'])
+                                  data['synopsis'], data['titleType'])
 
     def __repr__(self):
         return 'PrimeVideoTVSeason(asin={!r}, title={!r}, rating={}, ' \
@@ -794,8 +866,18 @@ class PrimeVideoTVSeason:
 class PrimeVideoTV:
     def __init__(self, asin: str, title: str, options: List[PrimeVideoOption], seasons: List[PrimeVideoTVSeason],
                  realm: str, locale: str, territory: str):
+        """
+        prime video TV data
+        :param asin: asin of prime video TV
+        :param title: title of prime video TV
+        :param options: options of prime video TV
+        :param seasons: seasons of prime video TV
+        :param realm: realm of prime video TV
+        :param locale: locale of prime video TV
+        :param territory: territory of prime video TV
+        """
         self.asin = asin
-        self.title = title
+        self.title = unescape(title)
         self.options = options
         self.seasons = seasons
         self.realm = realm
@@ -896,17 +978,16 @@ class SearchCategory(Enum):
     WineBeerAndSpirits = 'alcohol'
 
     def value_by_country(self, country: Country) -> str:
+        """
+        some categories has different values for region. Resolve correct value for current region.
+        """
         if self is SearchCategory.HomeImprovement:
-            if country in (
-                    Country.Sweden, Country.Singapore, Country.SaudiArabia, Country.Poland, Country.Netherlands,
-                    Country.India,
-                    Country.ChinaMainland, Country.Australia):
+            if country in (Country.Sweden, Country.Singapore, Country.SaudiArabia, Country.Poland, Country.Netherlands,
+                           Country.India, Country.ChinaMainland, Country.Australia):
                 return 'home-improvement'
         elif self is SearchCategory.SportsAndOutdoors:
-            if country in (
-                    Country.UnitedKingdom, Country.UnitedArabEmirates, Country.Turkey, Country.SaudiArabia,
-                    Country.Netherlands,
-                    Country.Germany, Country.France):
+            if country in (Country.UnitedKingdom, Country.UnitedArabEmirates, Country.Turkey, Country.SaudiArabia,
+                           Country.Netherlands, Country.Germany, Country.France):
                 return 'sports'
         elif self is SearchCategory.ToysAndGames:
             if country in (Country.UnitedStates, Country.ChinaMainland):
@@ -916,8 +997,15 @@ class SearchCategory(Enum):
 
 class SearchResultProductOffers:
     def __init__(self, asin: str, offer_name: str, currency: str, price: float):
+        """
+        offer of search result product
+        :param asin: asin of offer
+        :param offer_name: offer_name of offer
+        :param currency: currency of offer
+        :param price: price of offer
+        """
         self.asin = asin
-        self.offer_name = offer_name
+        self.offer_name = unescape(offer_name)
         self.currency = currency
         self.price = price
 
@@ -928,8 +1016,16 @@ class SearchResultProductOffers:
 
 class SearchResultProduct:
     def __init__(self, asin: str, name: str, currency: str, min_price: float, offers: List[SearchResultProductOffers]):
+        """
+        each product of search result
+        :param asin: asin of product
+        :param name: name of product
+        :param currency: currency of product
+        :param min_price: min price of offers
+        :param offers: offers for product
+        """
         self.asin = asin
-        self.name = name
+        self.name = unescape(name)
         self.currency = currency
         self.min_price = min_price
         self.offers = offers
@@ -942,7 +1038,20 @@ class SearchResultProduct:
 
 class SearchResult:
     def __init__(self, result: List[SearchResultProduct], keyword: str, page: int, min_price: int, max_price: int,
-                 merchant: str, category: SearchCategory):
+                 merchant: str, category: SearchCategory, last_page: Optional[int], is_last_page: bool):
+        """
+        result of search
+        :param result: result of search
+        :param keyword: keyword of search
+        :param page: page number of result
+        :param min_price: min price of search filtering
+        :param max_price: max price of search filtering
+        :param merchant: merchant id of search filtering
+        :param category: category filtering
+        :param last_page: last page number. if current page exceeds last_page, terraplen cant parse last_page from html.
+        so, last_page will be None.
+        :param is_last_page: whether this is last page
+        """
         self.result = result
         self.keyword = keyword
         self.page = page
@@ -950,8 +1059,14 @@ class SearchResult:
         self.max_price = max_price
         self.merchant = merchant
         self.category = category
+        self.last_page = last_page
+        self.is_last_page = is_last_page
 
     def __repr__(self):
         return 'SearchResult(result={!r}, keyword={!r}, page={}, min_price={}, max_price={}, ' \
-               'merchant={!r}, category={!r})'.format(self.result, self.keyword, self.page, self.min_price,
-                                                      self.max_price, self.merchant, self.category)
+               'merchant={!r}, category={!r}, last_page={}, is_last_page={})'.format(self.result, self.keyword,
+                                                                                     self.page,
+                                                                                     self.min_price, self.max_price,
+                                                                                     self.merchant,
+                                                                                     self.category, self.last_page,
+                                                                                     self.is_last_page)
