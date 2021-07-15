@@ -236,14 +236,14 @@ class Scraper:
             self.init()
 
     def init(self):
-        self.get_with_update_cookie(self._url_top_page())
+        self._get_with_update_cookie(self._url_top_page())
 
-    def get_with_update_cookie(self, url: str) -> requests.Response:
+    def _get_with_update_cookie(self, url: str) -> requests.Response:
         resp = requests.get(url, headers=self._create_header())
         self._update_with_resp(resp)
         return resp
 
-    def post_with_update_cookie(self, url: str, data: Dict) -> requests.Response:
+    def _post_with_update_cookie(self, url: str, data: Dict) -> requests.Response:
         resp = requests.post(url, data=data, headers=self._create_header())
         self._update_with_resp(resp)
         return resp
@@ -313,7 +313,7 @@ class Scraper:
         :return: Union[ProductVariations, Book, Movie, Product, Kindle, PrimeVideoMovie, PrimeVideoTV].
          Check type of return value.
         """
-        resp = self.get_with_update_cookie(self._url_product(asin))
+        resp = self._get_with_update_cookie(self._url_product(asin))
         soup = BeautifulSoup(resp.text, 'lxml')
         image = soup.select_one(selector.Product.ImageJS)
         if image:
@@ -347,7 +347,7 @@ class Scraper:
         :param asin: Asin of product. Normal product, Books, Kindle books, Movie or Prime Video are acceptable
         :return: Dict[int, int]. like {5: 10, 4: 30, 3: 20, 2: 20, 1: 10}. Keys are the evaluation value. Values are the percentage of
         """
-        resp = self.get_with_update_cookie(self._url_rating(asin))
+        resp = self._get_with_update_cookie(self._url_rating(asin))
         if resp.status_code != 200:
             raise ValueError("status code `{}` seems like invalid for `get_rating`".format(resp.status_code))
         soup = BeautifulSoup(resp.text, 'lxml')
@@ -374,7 +374,7 @@ class Scraper:
         :param page: page of offers
         :return: OfferList
         """
-        resp = self.get_with_update_cookie(
+        resp = self._get_with_update_cookie(
             self._url_offers(asin, prime_eligible=prime_eligible, free_shipping=free_shipping, new=new,
                              used_like_new=used_like_new, used_very_good=used_very_good, used_good=used_good,
                              used_acceptable=used_acceptable, merchant=merchant, page=page))
@@ -441,7 +441,7 @@ class Scraper:
         :return: ReviewList
         """
 
-        resp = self.post_with_update_cookie(self._url_reviews(page), data=setting.to_dict(asin))
+        resp = self._post_with_update_cookie(self._url_reviews(page), data=setting.to_dict(asin))
         review = []
 
         for dat in resp.text.split(selector.Review.StreamStrip):
@@ -505,7 +505,7 @@ class Scraper:
         :return: SearchResult
         """
 
-        resp = self.get_with_update_cookie(self._url_search(keyword, page, min_price, max_price, merchant, category))
+        resp = self._get_with_update_cookie(self._url_search(keyword, page, min_price, max_price, merchant, category))
         soup = BeautifulSoup(resp.text, 'lxml')
         result = []
         for item in soup.select('div.s-result-item.s-asin'):

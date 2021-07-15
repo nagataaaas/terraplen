@@ -624,7 +624,14 @@ class Product:
     def __init__(self, asin: str, title: str, variation: List[Variation], images: List[ProductImage],
                  videos: List[Video], hero_images: List[ProductImage], hero_videos=List[Video]):
         """
-        product of
+        product data
+        :param asin: asin of product
+        :param title: title of product
+        :param variation: variation of product
+        :param images: images of product
+        :param videos: videos of product
+        :param hero_images: hero images of product
+        :param hero_videos: hero videos of product
         """
         self.asin = asin
         self.title = title
@@ -644,6 +651,12 @@ class Product:
 
 class MediaVariation:
     def __init__(self, name: str, price: str, asin: str):
+        """
+        variation of books and movies
+        :param name: name of variation
+        :param price: price of variation
+        :param asin: asin of variation
+        """
         self.name = name
         self.price = price
         self.asin = asin
